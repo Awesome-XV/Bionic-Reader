@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      margin: 0;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    
+    .header p {
+      margin: 5px 0 0 0;
+      opacity: 0.8;
+      font-size: 14px;
+    }
+    
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      width: 60px;
+      height: 30px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 15px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin: 0 15px;
+    }
+    
+    .toggle-switch.active {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .toggle-switch.active .toggle-slider {
+      transform: translateX(30px);
+    }
+    
+    .status-text {
+      font-weight: 500;
+      min-width: 60px;
+    }
+    
+    .demo {
+      background: rgba(255,255,255,0.1);
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+    
+    .demo-normal {
+      opacity: 0.7;
+      margin-bottom: 10px;
+    }
+    
+    .demo-bionic {
+      font-weight: 500;
+    }
+    
+    .demo-bionic .demo-bold {
+      font-weight: 700;
+    }
+    
+    .status {
+      text-align: center;
+      margin: 15px 0;
+      padding: 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.1);
+      font-size: 13px;
+      opacity: 0.9;
+    }
+    
+    .tips {
+      background: rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    .tips h4 {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+    
+    .tips ul {
+      margin: 0;
+      padding-left: 16px;
+      opacity: 0.8;
+    }
+    
+    .tips li {
+      margin: 4px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⚡ Bionic Reader</h1>
+    <p>Speed up your reading</p>
+  </div>
+  
+  <div class="toggle-container">
+    <span class="status-text" id="offText">OFF</span>
+    <div class="toggle-switch" id="toggleSwitch">
+      <div class="toggle-slider"></div>
+    </div>
+    <span class="status-text" id="onText">ON</span>
+  </div>
+  
+  <div class="status" id="status">
+    Ready to boost your reading speed!
+  </div>
+  
+  <div class="demo">
+    <div class="demo-normal">Normal: Reading this text normally</div>
+    <div class="demo-bionic">Bionic: <span class="demo-bold">Rea</span>ding <span class="demo-bold">th</span>is <span class="demo-bold">te</span>xt <span class="demo-bold">nor</span>mally</div>
+  </div>
+  
+  <div class="tips">
+    <h4>💡 Smart Features:</h4>
+    <ul>
+      <li>Skips titles & headings</li>
+      <li>Ignores code & forms</li>
+      <li>Focuses on main content</li>
+      <li>Works with dynamic pages</li>
+    </ul>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

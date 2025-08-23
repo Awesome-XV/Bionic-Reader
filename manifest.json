@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Bionic Reader",
+  "version": "1.0.4",
+  "description": "Transform any webpage text into bionic reading format for faster, more efficient reading",
+  
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "<all_urls>"
+  ],
+  
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*", "<all_urls>"],
+      "js": ["content.js"],
+      "css": ["bionic.css"],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Bionic Reader - Speed up your reading"
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["bionic.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

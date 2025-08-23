@@ -1,0 +1,393 @@
+/* TRUE Bionic Reading Extension Styles - Based on Official Implementation */
+
+/* Fixation styling - the core of Bionic Reading */
+.bionic-fixation {
+  font-weight: 600 !important;
+  color: inherit !important;
+  /* Softer, more natural bolding */
+  text-rendering: optimizeLegibility !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* Enhanced wrapper styling with proper text selection */
+.bionic-wrapper {
+  display: inline;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  /* CRITICAL: Enable text selection */
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* Main bionic reading state */
+.bionic-reading-enabled .bionic-fixation {
+  /* More natural, readable bold weight */
+  font-weight: 600 !important;
+  /* Ensure fixation parts are also selectable */
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* Theme adaptations */
+.bionic-reading-enabled[data-theme="light"] .bionic-fixation,
+.bionic-reading-enabled .bionic-fixation {
+  opacity: 1 !important;
+  /* Slightly stronger contrast for light themes */
+  font-weight: 650 !important;
+}
+
+/* Dark theme compatibility - softer approach */
+.bionic-reading-enabled[data-theme="dark"] .bionic-fixation,
+body.dark .bionic-fixation,
+.dark .bionic-fixation,
+[data-theme="dark"] .bionic-fixation {
+  /* Softer weight for dark themes to reduce eye strain */
+  font-weight: 550 !important;
+  opacity: 0.92 !important;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .bionic-fixation {
+    font-weight: 700 !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Ensure elements that should NOT be processed stay normal */
+h1 .bionic-fixation, 
+h2 .bionic-fixation, 
+h3 .bionic-fixation, 
+h4 .bionic-fixation, 
+h5 .bionic-fixation, 
+h6 .bionic-fixation,
+.title .bionic-fixation,
+.heading .bionic-fixation,
+.page-title .bionic-fixation,
+.post-title .bionic-fixation,
+.article-title .bionic-fixation {
+  font-weight: inherit !important; /* Disable bionic in titles */
+  opacity: 1 !important;
+}
+
+/* Skip navigation and UI elements */
+nav .bionic-fixation,
+.nav .bionic-fixation,
+.menu .bionic-fixation,
+.breadcrumb .bionic-fixation,
+.navigation .bionic-fixation,
+button .bionic-fixation,
+.btn .bionic-fixation,
+.button .bionic-fixation {
+  font-weight: inherit !important;
+}
+
+/* Handle code blocks - disable bionic completely */
+code .bionic-fixation,
+pre .bionic-fixation,
+.code .bionic-fixation,
+.hljs .bionic-fixation,
+.language-* .bionic-fixation,
+kbd .bionic-fixation,
+samp .bionic-fixation,
+.CodeMirror .bionic-fixation,
+.highlight .bionic-fixation {
+  font-weight: inherit !important;
+  opacity: 1 !important;
+}
+
+/* Form elements should not be processed */
+input .bionic-fixation,
+textarea .bionic-fixation,
+select .bionic-fixation,
+[contenteditable="true"] .bionic-fixation {
+  font-weight: inherit !important;
+}
+
+/* Links maintain their styling while preserving fixation */
+a .bionic-fixation {
+  color: inherit !important;
+  text-decoration: inherit !important;
+}
+
+/* Ensure perfect text selection across all browsers */
+.bionic-wrapper *,
+.bionic-fixation {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* Beautiful text selection styling */
+.bionic-fixation::selection,
+.bionic-wrapper::selection {
+  background: #3390ff !important;
+  color: white !important;
+}
+
+.bionic-fixation::-moz-selection,
+.bionic-wrapper::-moz-selection {
+  background: #3390ff !important;
+  color: white !important;
+}
+
+/* Smooth transitions when toggling */
+.bionic-fixation {
+  transition: font-weight 0.15s ease-out, opacity 0.15s ease-out !important;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .bionic-fixation {
+    transition: none !important;
+  }
+}
+
+/* Special handling for different content types */
+
+/* Articles and main content - optimal readability */
+article .bionic-fixation,
+main .bionic-fixation,
+.content .bionic-fixation,
+.post-content .bionic-fixation,
+.entry-content .bionic-fixation {
+  /* Slightly more prominent in main content */
+  font-weight: 620 !important;
+}
+
+/* Comments and secondary content - lighter touch */
+.comments .bionic-fixation,
+.comment .bionic-fixation,
+aside .bionic-fixation,
+.sidebar .bionic-fixation {
+  font-weight: 580 !important;
+  opacity: 0.88 !important;
+}
+
+/* Table content - maintain readability */
+table .bionic-fixation,
+td .bionic-fixation,
+th .bionic-fixation {
+  font-weight: 590 !important;
+}
+
+/* Blockquotes - distinctive but readable */
+blockquote .bionic-fixation,
+.quote .bionic-fixation {
+  font-weight: 600 !important;
+  opacity: 0.9 !important;
+}
+
+/* Lists - balanced approach */
+li .bionic-fixation,
+ol .bionic-fixation,
+ul .bionic-fixation {
+  font-weight: 600 !important;
+}
+
+/* Captions and small text */
+.caption .bionic-fixation,
+.small .bionic-fixation,
+small .bionic-fixation,
+.text-sm .bionic-fixation {
+  font-weight: 640 !important; /* Slightly stronger for small text */
+}
+
+/* Print styles - ensure readability when printed */
+@media print {
+  .bionic-fixation {
+    font-weight: 700 !important;
+    opacity: 1 !important;
+    color: #000 !important;
+  }
+  
+  .bionic-wrapper {
+    color: inherit !important;
+  }
+}
+
+/* Font-specific optimizations */
+/* Georgia, Times - serif fonts need slightly different treatment */
+.bionic-reading-enabled[style*="Georgia"] .bionic-fixation,
+.bionic-reading-enabled[style*="Times"] .bionic-fixation,
+.bionic-reading-enabled[style*="serif"] .bionic-fixation {
+  font-weight: 640 !important;
+  letter-spacing: 0.01em !important;
+}
+
+/* Sans-serif fonts - cleaner approach */
+.bionic-reading-enabled[style*="Arial"] .bionic-fixation,
+.bionic-reading-enabled[style*="Helvetica"] .bionic-fixation,
+.bionic-reading-enabled[style*="sans-serif"] .bionic-fixation {
+  font-weight: 600 !important;
+}
+
+/* Monospace fonts - should generally be avoided but handle gracefully */
+.bionic-reading-enabled[style*="monospace"] .bionic-fixation,
+.bionic-reading-enabled[style*="Courier"] .bionic-fixation {
+  font-weight: 550 !important;
+  opacity: 0.85 !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .bionic-fixation {
+    /* Slightly lighter on mobile to reduce eye strain on small screens */
+    font-weight: 580 !important;
+  }
+  
+  /* Larger text on mobile can handle slightly more weight */
+  .bionic-reading-enabled[style*="font-size: 1.2"] .bionic-fixation,
+  .bionic-reading-enabled[style*="font-size: 1.3"] .bionic-fixation,
+  .bionic-reading-enabled[style*="font-size: 1.4"] .bionic-fixation {
+    font-weight: 610 !important;
+  }
+}
+
+/* Very small screens - ultra-conservative approach */
+@media (max-width: 480px) {
+  .bionic-fixation {
+    font-weight: 570 !important;
+    opacity: 0.9 !important;
+  }
+}
+
+/* Large screens - can handle more prominent fixation */
+@media (min-width: 1200px) {
+  .bionic-fixation {
+    font-weight: 630 !important;
+  }
+}
+
+/* High DPI screens - refined rendering */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .bionic-fixation {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+  }
+}
+
+/* Focus states for accessibility */
+.bionic-wrapper:focus-within .bionic-fixation,
+.bionic-fixation:focus {
+  outline: 2px solid #3390ff !important;
+  outline-offset: 1px !important;
+  border-radius: 2px !important;
+}
+
+/* Support for reader mode detection */
+body.reader-mode .bionic-fixation,
+.reader-mode .bionic-fixation,
+[data-reader-mode="true"] .bionic-fixation {
+  /* Even softer approach for reader modes */
+  font-weight: 560 !important;
+  opacity: 0.85 !important;
+}
+
+/* Animation and interaction states */
+.bionic-wrapper:hover .bionic-fixation {
+  /* Subtle hover effect for interactive content */
+  opacity: 1 !important;
+  transition: opacity 0.1s ease !important;
+}
+
+/* RTL (Right-to-Left) language support */
+[dir="rtl"] .bionic-fixation,
+.rtl .bionic-fixation {
+  font-weight: 600 !important;
+  text-align: inherit !important;
+}
+
+/* Specific website adaptations */
+/* Wikipedia - needs lighter touch due to dense content */
+body[class*="mediawiki"] .bionic-fixation {
+  font-weight: 580 !important;
+  opacity: 0.88 !important;
+}
+
+/* Medium, Substack - article-focused sites */
+body[class*="medium"] .bionic-fixation,
+body[class*="substack"] .bionic-fixation {
+  font-weight: 620 !important;
+}
+
+/* News sites - rapid reading optimization */
+body[class*="news"] .bionic-fixation,
+body[class*="cnn"] .bionic-fixation,
+body[class*="bbc"] .bionic-fixation {
+  font-weight: 610 !important;
+}
+
+/* Social media - minimal interference */
+body[class*="twitter"] .bionic-fixation,
+body[class*="facebook"] .bionic-fixation,
+body[class*="linkedin"] .bionic-fixation {
+  font-weight: 570 !important;
+  opacity: 0.85 !important;
+}
+
+/* Academic and technical sites - enhanced readability */
+body[class*="arxiv"] .bionic-fixation,
+body[class*="jstor"] .bionic-fixation,
+body[class*="scholar"] .bionic-fixation {
+  font-weight: 640 !important;
+}
+
+/* Error states and fallbacks */
+.bionic-wrapper.error .bionic-fixation {
+  font-weight: inherit !important;
+  opacity: 1 !important;
+  color: inherit !important;
+}
+
+/* Ensure compatibility with popular CSS frameworks */
+/* Bootstrap */
+.bootstrap .bionic-fixation,
+[class*="bootstrap"] .bionic-fixation {
+  font-weight: 600 !important;
+}
+
+/* Tailwind CSS */
+.tailwind .bionic-fixation,
+[class*="tailwind"] .bionic-fixation {
+  font-weight: 600 !important;
+}
+
+/* Material Design */
+.material .bionic-fixation,
+[class*="material"] .bionic-fixation {
+  font-weight: 590 !important;
+}
+
+/* Final catch-all for any missed edge cases */
+.bionic-reading-enabled .bionic-wrapper {
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  word-spacing: inherit !important;
+  text-transform: inherit !important;
+  text-decoration: inherit !important;
+}
+
+/* Ensure no layout shifts occur */
+.bionic-wrapper,
+.bionic-fixation {
+  display: inline !important;
+  position: static !important;
+  float: none !important;
+  clear: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
