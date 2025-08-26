@@ -76,6 +76,23 @@ const bionicText = bionicReader.convert(normalText);
 4. Watch the magic happen! Text transforms instantly
 5. Toggle off anytime to return to normal reading
 
+## Demo
+
+Before (normal):
+
+Reading this sentence requires your brain to process each complete word.
+
+After (Bionic):
+
+**Rea**ding **th**is **se**ntence **re**quires **yo**ur **br**ain **to** **pr**ocess **ea**ch **co**mplete **wo**rd.
+
+Quick try:
+
+- Open any article-like page and click the extension icon.
+- Toggle On to apply bionic highlighting.
+- Use the "Highlight intensity" slider to make highlighting stronger or gentler.
+- Press Ctrl+Shift+B (Cmd+Shift+B on Mac) to toggle the extension from the keyboard.
+
 ## 🎯 Smart Features Explained
 
 ### What Gets Processed
