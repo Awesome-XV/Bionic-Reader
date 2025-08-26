@@ -1,6 +1,6 @@
 # Bionic Reader
 
-A tool designed to enhance reading speed and comprehension by highlighting parts of words to guide the reader's eye.
+This is a tool designed to enhance reading speed and comprehension by highlighting parts of words to guide the reader's eye.
 
 ## Description
 
@@ -143,11 +143,5 @@ Bionic Reading is a reading method that highlights the first few letters of word
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 Legal
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-See the Terms of Use for detailed information about permitted usage and limitations.
 
 Happy speed reading! 🚀⚡
