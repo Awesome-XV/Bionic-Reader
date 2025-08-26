@@ -271,3 +271,47 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 console.log('[Security] Background service worker initialized with enterprise security');
+
+// Handle keyboard commands from manifest
+chrome.commands.onCommand.addListener((command) => {
+  console.log('[Security] Command received:', command);
+  if (command === 'toggle-bionic') {
+    // Find active tab and forward toggle
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs || !tabs[0]) return;
+      const tabId = tabs[0].id;
+      if (!SecurityValidator.validateOrigin(tabs[0].url)) {
+        console.warn('[Security] Command origin blocked for tab:', tabs[0].url);
+        return;
+      }
+      chrome.tabs.sendMessage(tabId, { action: 'toggle', source: 'command' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('[Security] Command forwarding failed:', chrome.runtime.lastError.message);
+        } else {
+          console.log('[Security] Toggle command forwarded, response:', response);
+        }
+      });
+    });
+  }
+});
+
+// Accept messages for updating per-tab intensity (optional)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message && message.action === 'setIntensity') {
+    const intensity = Number(message.intensity) || 0.5;
+    const tabId = sender?.tab?.id;
+    if (!tabId) {
+      sendResponse({ error: 'No tab context' });
+      return false;
+    }
+    // Forward intensity to content script in this tab
+    chrome.tabs.sendMessage(tabId, { action: 'setIntensity', intensity }, (resp) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ error: 'Failed to set intensity' });
+      } else {
+        sendResponse({ success: true, intensity });
+      }
+    });
+    return true; // async
+  }
+});

@@ -35,6 +35,15 @@
     "default_popup": "popup.html",
     "default_title": "Bionic Reader - Speed up your reading"
   },
+  "commands": {
+    "toggle-bionic": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+B",
+        "mac": "Command+Shift+B"
+      },
+      "description": "Toggle Bionic Reader"
+    }
+  },
   
   "web_accessible_resources": [
     {

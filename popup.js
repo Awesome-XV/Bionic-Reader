@@ -196,10 +196,12 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleSwitch.classList.add('active');
       onText.style.opacity = '1';
       offText.style.opacity = '0.5';
+  toggleSwitch.setAttribute('aria-checked', 'true');
     } else {
       toggleSwitch.classList.remove('active');
       onText.style.opacity = '0.5';
       offText.style.opacity = '1';
+  toggleSwitch.setAttribute('aria-checked', 'false');
     }
   }
 
@@ -255,7 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Add keyboard shortcut (Alt+B)
   document.addEventListener('keydown', (e) => {
-    if (e.altKey && e.key === 'b') {
+    // Alt+B hint kept for quick access in popup
+    if (e.altKey && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      toggleSwitch.click();
+    }
+    // Allow Enter/Space to toggle when the switch is focused
+    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === toggleSwitch) {
       e.preventDefault();
       toggleSwitch.click();
     }
@@ -267,4 +275,68 @@ document.addEventListener('DOMContentLoaded', () => {
       status.innerHTML = '💫 Ready to boost your reading!<br><small>Click toggle or press Alt+B</small>';
     }
   }, 2000);
+
+  // Intensity slider wiring
+  const intensity = document.getElementById('intensity');
+  const intensityValue = document.getElementById('intensityValue');
+
+  function setIntensityLabel(v) {
+    const pct = Math.round(v * 100);
+    intensityValue.textContent = `${pct}%`;
+  }
+
+  // Load saved intensity
+  chrome.storage.sync.get({ bionicIntensity: 0.5 }, (items) => {
+    const v = Number(items.bionicIntensity) || 0.5;
+    intensity.value = v;
+    setIntensityLabel(v);
+    // Inform content script of current intensity for active tab
+    safeTabAccess((tab) => {
+      chrome.runtime.sendMessage({ action: 'setIntensity', intensity: v }, (resp) => {
+        // ignore errors - content script may not be injected yet
+      });
+    });
+  });
+
+  intensity.addEventListener('input', (e) => {
+    const v = Number(e.target.value);
+    setIntensityLabel(v);
+  });
+
+  intensity.addEventListener('change', (e) => {
+    const v = Number(e.target.value);
+    // Persist
+    chrome.storage.sync.set({ bionicIntensity: v });
+    // Notify background to forward to content script
+    safeTabAccess((tab) => {
+      chrome.runtime.sendMessage({ action: 'setIntensity', intensity: v }, (resp) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Failed to send intensity to content script:', chrome.runtime.lastError.message);
+        }
+      });
+    });
+  });
+
+  // Reset button
+  const resetBtn = document.getElementById('resetBtn');
+  resetBtn.addEventListener('click', () => {
+    const defaultVal = 0.5;
+    intensity.value = defaultVal;
+    setIntensityLabel(defaultVal);
+    chrome.storage.sync.set({ bionicIntensity: defaultVal }, () => {
+      // Notify content script
+      safeTabAccess((tab) => {
+        chrome.runtime.sendMessage({ action: 'setIntensity', intensity: defaultVal }, () => {});
+      });
+    });
+    status.textContent = '✨ Reset to default intensity';
+  });
+
+  // Help link (opens Terms file in a new tab if possible)
+  const helpLink = document.getElementById('helpLink');
+  helpLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    // Try to open the local terms file if packaged; otherwise open repo README
+    chrome.tabs.create({ url: 'https://github.com/Awesome-XV/Bionic-Reader#privacy' });
+  });
 });

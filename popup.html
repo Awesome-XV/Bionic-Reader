@@ -133,24 +133,30 @@
 <body>
   <div class="header">
     <h1>⚡ Bionic Reader</h1>
-    <p>Speed up your reading</p>
+    <p>Read faster with gentle highlights</p>
   </div>
   
   <div class="toggle-container">
-    <span class="status-text" id="offText">OFF</span>
-    <div class="toggle-switch" id="toggleSwitch">
-      <div class="toggle-slider"></div>
+    <span class="status-text" id="offText">Off</span>
+    <div class="toggle-switch" id="toggleSwitch" role="switch" aria-checked="false" tabindex="0" title="Toggle Bionic Reader">
+      <div class="toggle-slider" aria-hidden="true"></div>
     </div>
-    <span class="status-text" id="onText">ON</span>
+    <span class="status-text" id="onText">On</span>
   </div>
   
-  <div class="status" id="status">
-    Ready to boost your reading speed!
+  <div class="status" id="status" aria-live="polite">
+    Ready to help you read — toggle on to start
   </div>
   
   <div class="demo">
     <div class="demo-normal">Normal: Reading this text normally</div>
     <div class="demo-bionic">Bionic: <span class="demo-bold">Rea</span>ding <span class="demo-bold">th</span>is <span class="demo-bold">te</span>xt <span class="demo-bold">nor</span>mally</div>
+  </div>
+  
+  <div style="margin-top:16px;">
+    <label for="intensity" style="font-size:13px;opacity:0.9;">Highlight intensity</label>
+    <input id="intensity" type="range" min="0" max="1" step="0.05" value="0.5" style="width:100%;margin-top:6px;">
+    <div id="intensityValue" style="text-align:right;font-size:12px;opacity:0.8;margin-top:4px;">50%</div>
   </div>
   
   <div class="tips">
@@ -161,6 +167,11 @@
       <li>Focuses on main content</li>
       <li>Works with dynamic pages</li>
     </ul>
+  </div>
+
+  <div style="margin-top:12px;display:flex;gap:8px;justify-content:space-between;align-items:center;">
+    <button id="resetBtn" style="flex:1;padding:8px;border-radius:6px;border:none;background:rgba(255,255,255,0.12);color:white;cursor:pointer;">Reset to default</button>
+    <a id="helpLink" href="#" style="font-size:12px;opacity:0.85;text-decoration:underline;color:inherit;">Privacy & help</a>
   </div>
 
   <script src="popup.js"></script>

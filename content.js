@@ -19,6 +19,9 @@ const CONFIG = {
   ENABLE_VOWEL_OPTIMIZATION: false // Disabled for more predictable results
 };
 
+// Intensity (0..1) controls how aggressive bolding is; default 0.5
+let BIONIC_INTENSITY = 0.5;
+
 // State management
 let bionicEnabled = false;
 let originalTexts = new WeakMap();
@@ -112,7 +115,10 @@ function calculateBionicBoldPositions(word) {
   }
   
   // For other words, use consecutive bolding from start
-  const r = isFunction ? CONFIG.FUNCTION_WORD_RATIO : CONFIG.CONTENT_WORD_RATIO;
+  // Scale base ratios by intensity (linear interpolation)
+  const base = isFunction ? CONFIG.FUNCTION_WORD_RATIO : CONFIG.CONTENT_WORD_RATIO;
+  const scaledR = Math.max(0.05, Math.min(0.95, base * (0.5 + BIONIC_INTENSITY))); // keep in sensible range
+  const r = scaledR;
   const B0 = Math.ceil(N * r);
   const B = Math.min(Math.max(B0, 1), N - 1);
   
@@ -463,10 +469,10 @@ async function enableBionic() {
   
   if (processedCount > 0) {
     setTimeout(() => {
-      showNotification(`✅ Enhanced ${processedCount} text sections with Fixed Bionic Reading`, 'success');
+    showNotification(`✅ Enhanced ${processedCount} sections — enjoy faster reading!`, 'success');
     }, 800);
   } else {
-    showNotification('ℹ️ No suitable text found for enhancement', 'info');
+  showNotification('ℹ️ No suitable text found on this page', 'info');
   }
 }
 
@@ -583,6 +589,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   return false;
 });
+
+// Handle runtime intensity changes
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request && request.action === 'setIntensity') {
+    const v = Number(request.intensity);
+    if (!isNaN(v)) {
+      BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
+      console.log('[BIONIC] Intensity set to', BIONIC_INTENSITY);
+      sendResponse({ success: true, intensity: BIONIC_INTENSITY });
+    } else {
+      sendResponse({ error: 'Invalid intensity' });
+    }
+    return true;
+  }
+});
+
+// Load saved intensity from storage if available
+if (chrome && chrome.storage && chrome.storage.sync) {
+  chrome.storage.sync.get({ bionicIntensity: 0.5 }, (items) => {
+    const v = Number(items.bionicIntensity);
+    if (!isNaN(v)) {
+      BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
+      console.log('[BIONIC] Loaded intensity from storage:', BIONIC_INTENSITY);
+    }
+  });
+}
 
 // Dynamic content observer
 const observer = new MutationObserver((mutations) => {
