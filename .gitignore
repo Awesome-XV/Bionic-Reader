@@ -6,6 +6,7 @@ npm-debug.log
 # Tests and coverage
 /tests/
 /coverage/
+src/
 
 # Editor folders
 .vscode/
