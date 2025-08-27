@@ -1,0 +1,19 @@
+# Node
+node_modules/
+package-lock.json
+npm-debug.log
+
+# Tests and coverage
+/tests/
+/coverage/
+
+# Editor folders
+.vscode/
+.idea/
+
+# Build outputs
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
