@@ -124,6 +124,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Ensure content script + CSS are injected into the tab (returns Promise)
+  async function ensureInjected(tabId, attempts = 2) {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        // insert CSS first, then JS
+        await chrome.scripting.insertCSS({ target: { tabId, allFrames: true }, files: ['bionic.css'] });
+        await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] });
+        return true;
+      } catch (err) {
+        // wait a short time then retry
+        console.warn('Injection attempt failed:', err, 'retrying...', i + 1);
+        await new Promise(r => setTimeout(r, 200 * (i + 1)));
+      }
+    }
+    return false;
+  }
+
   // Enhanced message sending with better error handling
   function sendMessageToTab(tabId, message, callback) {
     chrome.tabs.sendMessage(tabId, message, { frameId: 0 }, (response) => {
@@ -303,16 +320,32 @@ document.addEventListener('DOMContentLoaded', () => {
     setIntensityLabel(v);
   });
 
+  // Updated intensity change handler (call this in place of your previous handler)
   intensity.addEventListener('change', (e) => {
     const v = Number(e.target.value);
-    // Persist
+    // Persist the preference
     chrome.storage.sync.set({ bionicIntensity: v });
-    // Notify background to forward to content script
+
+    // Ensure active tab is available and inject before messaging
     safeTabAccess((tab) => {
-      chrome.runtime.sendMessage({ action: 'setIntensity', intensity: v }, (resp) => {
-        if (chrome.runtime.lastError) {
-          console.warn('Failed to send intensity to content script:', chrome.runtime.lastError.message);
+      if (!tab || !tab.id) return;
+      ensureInjected(tab.id).then((injected) => {
+        if (!injected) {
+          console.warn('Could not inject content script; intensity will apply when page is toggled');
+          // Optionally notify the user in popup:
+          status.textContent = 'Could not apply immediately — will apply when enabled';
+          return;
         }
+
+        // Send intensity directly to the content script in that tab
+        chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: v }, (resp) => {
+          if (chrome.runtime.lastError) {
+            console.warn('Failed to send intensity to content script:', chrome.runtime.lastError.message);
+          } else {
+            // friendly feedback
+            status.textContent = `Highlight intensity set: ${Math.round(v * 100)}%`;
+          }
+        });
       });
     });
   });

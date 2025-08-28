@@ -26,6 +26,14 @@ Additional features include:
 
 ## 📦 Installation Instructions
 
+# Installation thorugh marketplace ONLY AVAILABLE FOR EDGE FOR NOW IF USING ANOTHER BROWSER USE THE DEV PACKEGE INSTRUCTIONS (Waiting Verification, Coming Soon)
+
+### Step 1: Download
+- Vist the edge market place and downlaod the extension 
+- Use it!
+
+# If using developer packages
+
 ```
 # Clone the repository
 git clone https://github.com/yourusername/Bionic-Reader.git
