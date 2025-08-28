@@ -2,8 +2,6 @@
 
 Transform any webpage text into bionic reading format for faster, more efficient reading. This extension intelligently bolds the first few letters of each word, allowing your brain to auto-complete words and dramatically increase reading speed.
 
-![Bionic Reading Demo](https://via.placeholder.com/600x200/667eea/ffffff?text=Transform+Your+Reading+Experience)
-
 ## 🌟 Features
 
 - **Smart Text Processing**: Intelligently bolds text based on word length
