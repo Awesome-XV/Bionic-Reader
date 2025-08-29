@@ -358,6 +358,24 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   if (demoNormal) demoNormal.textContent = 'Normal: ' + DEMO_SAMPLE;
   if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, intensity.value || 0.5);
 
+  // Throttled demo updater using requestAnimationFrame (with setTimeout fallback)
+  const _requestRaf = (typeof requestAnimationFrame !== 'undefined') ? requestAnimationFrame : (cb) => setTimeout(cb, 16);
+  const _cancelRaf = (typeof cancelAnimationFrame !== 'undefined') ? cancelAnimationFrame : (id) => clearTimeout(id);
+  let _demoRafId = null;
+  let _pendingDemoValue = null;
+  function scheduleDemoUpdate(v) {
+    _pendingDemoValue = v;
+    if (_demoRafId != null) return; // already scheduled
+    _demoRafId = _requestRaf(() => {
+      try {
+        if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, _pendingDemoValue || 0.5);
+      } finally {
+        _demoRafId = null;
+        _pendingDemoValue = null;
+      }
+    });
+  }
+
   // Load saved intensity
   chrome.storage.sync.get({ bionicIntensity: 0.5 }, (items) => {
     const v = Number(items.bionicIntensity) || 0.5;
@@ -375,7 +393,8 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     const v = Number(e.target.value);
     setIntensityLabel(v);
   // Live preview while sliding
-  if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v);
+  // Throttle updates to avoid jank
+  scheduleDemoUpdate(v);
   });
 
   // Updated intensity change handler (call this in place of your previous handler)

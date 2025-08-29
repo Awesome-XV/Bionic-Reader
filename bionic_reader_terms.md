@@ -1,7 +1,7 @@
 # Terms of Use - Bionic Reader Extension
 
 **Last Updated:** August 16, 2025  
-**Version:** 1.4
+**Version:** 1.0.6
 
 ## 1. Acceptance of Terms
 

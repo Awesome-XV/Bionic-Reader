@@ -14,7 +14,7 @@ Transform any webpage text into bionic reading format for faster, more efficient
 
 ## 📦 Installation Instructions
 
-### Step 1: Download the Extension Files
+### Step 1: Download the Extension Files or vist the edge extension store and search "Bionic reader"
 
 1. **Create a new folder** on your computer called `bionic-reader-extension`
 2. **Save the following 5 files** in that folder:
@@ -112,7 +112,7 @@ Rea**ding th**is sen**tence req**uires yo**ur bra**in t**o pro**cess ea**ch com*
 2. **Some websites have custom styling** that might conflict
 3. **Check if you're in an iframe** - Some embedded content may not process
 
-## 🔒 Enterprise Security Features
+## 🔒 Security Features
 
 ### Multi-Layer Security Architecture
 - **Content Security Policy (CSP)** - Prevents script injection attacks
@@ -192,7 +192,7 @@ bionic-reader-extension/
 ### Common Questions
 
 **Q: Why doesn't it work on some websites?**
-A: Some sites use complex layouts or security restrictions. Try refreshing or check if it's a restricted page type.
+A: Some sites use complex layouts or security restrictions that don't allow for the extesnion to read. Try refreshing or check if it's a restricted page type.
 
 **Q: Can I adjust the bolding amount?**
 A: Currently uses smart defaults based on word length. Future versions may include customization.
@@ -220,6 +220,7 @@ If you encounter issues:
 2. **Try the basic fixes** (refresh page, reload extension)
 3. **Test on a simple website** like Wikipedia to isolate the issue
 4. **Note your browser version** and the specific website where it fails
+5. **If it still doesn't work make sure that you sumbit a issue on the github repo**
 
 ## 🔄 Updates & Maintenance
 

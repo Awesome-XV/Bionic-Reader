@@ -1,15 +1,5 @@
 ### Short-term (0-7 days) - Quick
 
-# 2 Live demo preview in popup
-Why: Immediate visual feedback increases confidence.
-Files: popup.html, popup.js, bionic.css
-Tasks:
-    Update demo element to re-render using the same transform function (client-side) as slider moves.
-    Throttle update to avoid jank in popup (e.g., requestAnimationFrame).
-Tests: manual UI test to confirm demo updates on slider input.
-Success: demo updates smoothly and reflects intensity.
-ETA: 0.5 day
-
 # 3 Accessibility polish
 Why: Keyboard users and screen reader users to be supported
 Files: popup.html, popup.js
