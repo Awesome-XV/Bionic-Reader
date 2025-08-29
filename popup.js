@@ -1,6 +1,71 @@
 'use strict';
 
-document.addEventListener('DOMContentLoaded', () => {
+// Demo text used in popup preview
+const DEMO_SAMPLE = 'Reading this demo text normally.';
+
+// Return HTML string with simple bionic-style bolding based on intensity
+function updateDemoHTML(text, intensity = 0.5) {
+  if (!text) return '';
+  const parts = text.split(/(\s+)/);
+  function calcBoldCount(word) {
+    const letters = (word.match(/[a-zA-Z]/g) || []).length;
+    if (letters <= 1) return 0;
+    const baseRatio = letters <= 3 ? 0.66 : 0.5;
+    const scaled = Math.max(0.05, Math.min(0.95, baseRatio * (0.5 + (Number(intensity) || 0.5))));
+    return Math.min(letters - 1, Math.ceil(letters * scaled));
+  }
+
+  return parts.map((part) => {
+    if (/^\s+$/.test(part)) return part;
+    let letterIndex = 0;
+    const chars = part.split('');
+    const boldCount = calcBoldCount(part);
+    return chars.map(ch => {
+      if (/[a-zA-Z]/.test(ch)) {
+        const out = (letterIndex < boldCount) ? `<span class="demo-bold">${ch}</span>` : ch;
+        letterIndex++;
+        return out;
+      }
+      return ch;
+    }).join('');
+  }).join('');
+}
+// When running in a test/Node environment, avoid running DOM code on require.
+// Also try to reuse the shared `ensureInjected` helper from `src/popup-inject.js`
+let importedEnsureInjected = null;
+try {
+  // require relative to this file
+  // eslint-disable-next-line global-require, import/no-unresolved
+  importedEnsureInjected = require('./src/popup-inject').ensureInjected;
+} catch (err) {
+  // not available in browser or when not running tests; fall back to local implementation
+}
+// Top-level ensureInjected used by tests or popup UI. Prefer imported helper when available.
+async function ensureInjected(tabId, attempts = 2) {
+  if (importedEnsureInjected) return importedEnsureInjected(tabId, attempts);
+  for (let i = 0; i < attempts; i++) {
+    try {
+      if (!global.chrome || !global.chrome.scripting) throw new Error('scripting API not available');
+      await global.chrome.scripting.insertCSS({ target: { tabId, allFrames: true }, files: ['bionic.css'] });
+      await global.chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] });
+      return true;
+    } catch (err) {
+      if (i < attempts - 1) {
+        // short backoff
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise(r => setTimeout(r, 200 * (i + 1)));
+      }
+    }
+  }
+  return false;
+}
+// Export for tests when required by Node immediately (ensureInjected is available on require)
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { updateDemoHTML, ensureInjected };
+}
+
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('DOMContentLoaded', () => {
   const toggleSwitch = document.getElementById('toggleSwitch');
   const onText = document.getElementById('onText');
   const offText = document.getElementById('offText');
@@ -124,22 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Ensure content script + CSS are injected into the tab (returns Promise)
-  async function ensureInjected(tabId, attempts = 2) {
-    for (let i = 0; i < attempts; i++) {
-      try {
-        // insert CSS first, then JS
-        await chrome.scripting.insertCSS({ target: { tabId, allFrames: true }, files: ['bionic.css'] });
-        await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] });
-        return true;
-      } catch (err) {
-        // wait a short time then retry
-        console.warn('Injection attempt failed:', err, 'retrying...', i + 1);
-        await new Promise(r => setTimeout(r, 200 * (i + 1)));
-      }
-    }
-    return false;
-  }
+  // Ensure content script + CSS are injected into the tab; uses top-level ensureInjected
 
   // Enhanced message sending with better error handling
   function sendMessageToTab(tabId, message, callback) {
@@ -302,6 +352,12 @@ document.addEventListener('DOMContentLoaded', () => {
     intensityValue.textContent = `${pct}%`;
   }
 
+  // Demo element wiring
+  const demoBionic = document.querySelector('.demo-bionic');
+  const demoNormal = document.querySelector('.demo-normal');
+  if (demoNormal) demoNormal.textContent = 'Normal: ' + DEMO_SAMPLE;
+  if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, intensity.value || 0.5);
+
   // Load saved intensity
   chrome.storage.sync.get({ bionicIntensity: 0.5 }, (items) => {
     const v = Number(items.bionicIntensity) || 0.5;
@@ -318,6 +374,8 @@ document.addEventListener('DOMContentLoaded', () => {
   intensity.addEventListener('input', (e) => {
     const v = Number(e.target.value);
     setIntensityLabel(v);
+  // Live preview while sliding
+  if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v);
   });
 
   // Updated intensity change handler (call this in place of your previous handler)
@@ -344,6 +402,8 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             // friendly feedback
             status.textContent = `Highlight intensity set: ${Math.round(v * 100)}%`;
+            // update demo to reflect final value
+            if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v);
           }
         });
       });
@@ -373,3 +433,8 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.tabs.create({ url: 'https://github.com/Awesome-XV/Bionic-Reader#privacy' });
   });
 });
+  // Expose test-hooks when required by Node tests
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { updateDemoHTML, ensureInjected };
+  }
+}
