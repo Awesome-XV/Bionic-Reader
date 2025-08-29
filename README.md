@@ -26,7 +26,7 @@ Additional features include:
 
 ## 📦 Installation Instructions
 
-# Installation thorugh marketplace ONLY AVAILABLE FOR EDGE FOR NOW IF USING ANOTHER BROWSER USE THE DEV PACKEGE INSTRUCTIONS (Waiting Verification, Coming Soon)
+# Installation thorugh marketplace ONLY AVAILABLE FOR EDGE
 
 ### Step 1: Download
 - Vist the edge market place and downlaod the extension 

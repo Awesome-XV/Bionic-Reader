@@ -1,18 +1,5 @@
 ### Short-term (0-7 days) - Quick
 
-# 1 Instant intensity apply (reliability)
-Why: Slider should take effect even if content script isn't injected yet; improves perceived responsiveness.
-Files: popup.js, background.js (or popup-inject.js helper)
-Tasks:
-    Ensure popup injects bionic.css and content.js via chrome.scripting before sending { action: 'setIntensity', intensity }.
-    Retry injection with small backoff (2–3 attempts).
-    Update popup UI to show friendly fallback when injection fails.
-Tests:
-Unit tests for injector retry logic (mock chrome.scripting) — already added.
-Manual: open an article where extension hasn't been used, move slider → intensity should apply or show fallback.
-Success: slider value influences page when enabling without manual toggle; no uncaught errors.
-ETA: 1 day
-
 # 2 Live demo preview in popup
 Why: Immediate visual feedback increases confidence.
 Files: popup.html, popup.js, bionic.css
@@ -35,7 +22,6 @@ Tests
     Screen reader spot-check (NVDA/VoiceOver).
 Success: all controls reachable via tab, aria-live announces state
 ETA: 1 day
-
 
 ### Mid-Term (1-3 weeks) - User polish
 
