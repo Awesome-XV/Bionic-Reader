@@ -41,8 +41,8 @@ try {
   // not available in browser or when not running tests; fall back to local implementation
 }
 // Top-level ensureInjected used by tests or popup UI. Prefer imported helper when available.
-async function ensureInjected(tabId, attempts = 2) {
-  if (importedEnsureInjected) return importedEnsureInjected(tabId, attempts);
+async function ensureInjected(tabId, attempts = 3, delayMs = 100) {
+  if (importedEnsureInjected) return importedEnsureInjected(tabId, attempts, delayMs);
   for (let i = 0; i < attempts; i++) {
     try {
       if (!global.chrome || !global.chrome.scripting) throw new Error('scripting API not available');
@@ -53,7 +53,7 @@ async function ensureInjected(tabId, attempts = 2) {
       if (i < attempts - 1) {
         // short backoff
         // eslint-disable-next-line no-await-in-loop
-        await new Promise(r => setTimeout(r, 200 * (i + 1)));
+        await new Promise(r => setTimeout(r, delayMs * (i + 1)));
       }
     }
   }
@@ -387,13 +387,14 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     // Ensure active tab is available and inject before messaging
     safeTabAccess((tab) => {
       if (!tab || !tab.id) return;
-      ensureInjected(tab.id).then((injected) => {
-        if (!injected) {
-          console.warn('Could not inject content script; intensity will apply when page is toggled');
-          // Optionally notify the user in popup:
-          status.textContent = 'Could not apply immediately — will apply when enabled';
-          return;
-        }
+      ensureInjected(tab.id, 3, 150).then((injected) => {
+          if (!injected) {
+            console.warn('Could not inject content script; intensity will apply when page is toggled');
+            // Friendly user-facing fallback
+            status.innerHTML = '⚠️ Could not apply instantly<br><small>Will apply when you enable Bionic Reader or try again</small>';
+            status.style.background = 'rgba(255,193,7,0.2)';
+            return;
+          }
 
         // Send intensity directly to the content script in that tab
         chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: v }, (resp) => {
