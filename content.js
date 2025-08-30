@@ -99,7 +99,7 @@ function splitsDigraph(word, B) {
 }
 
 /**
- * COMPLETELY REWRITTEN Core Bionic Reading Algorithm
+ * FIXED Core Bionic Reading Algorithm - Bold count is deterministic
  */
 function calculateBionicBoldPositions(word) {
   const letters = word.match(/[a-zA-Z]/g);
@@ -109,18 +109,11 @@ function calculateBionicBoldPositions(word) {
   const letterString = letters.join('');
   const isFunction = isFunctionWord(word);
   
-  // For 3-letter words, bold first 2 letters
-  if (N === 3) {
-    return [0, 1]; // Bold first 2 letters for 3-letter words
-  }
-  
-  // For other words, use consecutive bolding from start
-  // Scale base ratios by intensity (linear interpolation)
-  const base = isFunction ? CONFIG.FUNCTION_WORD_RATIO : CONFIG.CONTENT_WORD_RATIO;
-  const scaledR = Math.max(0.05, Math.min(0.95, base * (0.5 + BIONIC_INTENSITY))); // keep in sensible range
-  const r = scaledR;
-  const B0 = Math.ceil(N * r);
-  const B = Math.min(Math.max(B0, 1), N - 1);
+  // Keep the bold-letter count deterministic and independent of intensity.
+  // Small words keep a larger ratio; longer words use a smaller prefix.
+  const baseRatio = N <= 3 ? 0.66 : (isFunction ? CONFIG.FUNCTION_WORD_RATIO : CONFIG.CONTENT_WORD_RATIO);
+  const scaled = Math.max(0.05, Math.min(0.95, baseRatio));
+  const B = Math.min(N - 1, Math.ceil(N * scaled));
   
   const positions = [];
   for (let i = 0; i < B; i++) {
@@ -176,14 +169,16 @@ function transformSingleWord(word, index, words) {
   if (boldPositions.length === 0) return word;
   
   let result = '';
-  let currentPos = 0;
   
-  // Build result by wrapping bold letters individually
+  // Map intensity [0,1] to font-weight range [300,900] for more visible difference
+  const weight = Math.round(300 + (BIONIC_INTENSITY * 600));
+  
+  // Build result by wrapping bold letters individually with dynamic weight
   for (let i = 0; i < word.length; i++) {
     if (/[a-zA-Z]/.test(word[i])) {
       const letterIndex = letterPositions.indexOf(i);
       if (boldPositions.includes(letterIndex)) {
-        result += `<span class="bionic-fixation">${word[i]}</span>`;
+        result += `<span class="bionic-fixation" style="font-weight:${weight}">${word[i]}</span>`;
       } else {
         result += word[i];
       }
@@ -469,7 +464,7 @@ async function enableBionic() {
   
   if (processedCount > 0) {
     setTimeout(() => {
-    showNotification(`✅ Enhanced ${processedCount} sections — enjoy faster reading!`, 'success');
+    showNotification(`✅ Enhanced ${processedCount} sections – enjoy faster reading!`, 'success');
     }, 800);
   } else {
   showNotification('ℹ️ No suitable text found on this page', 'info');
@@ -597,6 +592,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (!isNaN(v)) {
       BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
       console.log('[BIONIC] Intensity set to', BIONIC_INTENSITY);
+      
+      // Update existing bionic spans with new font-weight
+      const weight = Math.round(300 + (BIONIC_INTENSITY * 600));
+      const spans = document.querySelectorAll('.bionic-fixation');
+      spans.forEach(span => {
+        span.style.fontWeight = weight;
+      });
+      
       sendResponse({ success: true, intensity: BIONIC_INTENSITY });
     } else {
       sendResponse({ error: 'Invalid intensity' });

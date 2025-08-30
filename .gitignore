@@ -14,6 +14,7 @@ src/
 
 # Build outputs
 dist/
+package_extension.bat
 
 # OS files
 .DS_Store

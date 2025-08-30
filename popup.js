@@ -10,10 +10,15 @@ function updateDemoHTML(text, intensity = 0.5) {
   function calcBoldCount(word) {
     const letters = (word.match(/[a-zA-Z]/g) || []).length;
     if (letters <= 1) return 0;
+    // Keep the bold-letter count deterministic and independent of intensity.
+    // Small words keep a larger ratio; longer words use a smaller prefix.
     const baseRatio = letters <= 3 ? 0.66 : 0.5;
-    const scaled = Math.max(0.05, Math.min(0.95, baseRatio * (0.5 + (Number(intensity) || 0.5))));
+    const scaled = Math.max(0.05, Math.min(0.95, baseRatio));
     return Math.min(letters - 1, Math.ceil(letters * scaled));
   }
+
+  // Map intensity [0,1] to font-weight range [300,900] for more visible difference
+  const weight = Math.round(300 + ((Number(intensity) || 0.5) * 600));
 
   return parts.map((part) => {
     if (/^\s+$/.test(part)) return part;
@@ -22,7 +27,7 @@ function updateDemoHTML(text, intensity = 0.5) {
     const boldCount = calcBoldCount(part);
     return chars.map(ch => {
       if (/[a-zA-Z]/.test(ch)) {
-        const out = (letterIndex < boldCount) ? `<span class="demo-bold">${ch}</span>` : ch;
+        const out = (letterIndex < boldCount) ? `<span class="demo-bold" style="font-weight:${weight}">${ch}</span>` : ch;
         letterIndex++;
         return out;
       }
@@ -335,6 +340,14 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       toggleSwitch.click();
     }
   });
+
+  // Also handle keydown directly on the switch for robustness
+  toggleSwitch.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleSwitch.click();
+    }
+  });
   
   // Show keyboard shortcut hint
   setTimeout(() => {
@@ -346,10 +359,18 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   // Intensity slider wiring
   const intensity = document.getElementById('intensity');
   const intensityValue = document.getElementById('intensityValue');
+  // ARIA attributes for the range control
+  intensity.setAttribute('role', 'slider');
+  intensity.setAttribute('aria-valuemin', '0');
+  intensity.setAttribute('aria-valuemax', '1');
+  intensity.setAttribute('aria-valuenow', intensity.value);
+  intensity.setAttribute('aria-label', 'Highlight intensity');
 
   function setIntensityLabel(v) {
     const pct = Math.round(v * 100);
     intensityValue.textContent = `${pct}%`;
+  // Update ARIA current value for screen readers
+  if (intensity) intensity.setAttribute('aria-valuenow', String(v));
   }
 
   // Demo element wiring
@@ -363,8 +384,16 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   const _cancelRaf = (typeof cancelAnimationFrame !== 'undefined') ? cancelAnimationFrame : (id) => clearTimeout(id);
   let _demoRafId = null;
   let _pendingDemoValue = null;
+  // Respect prefers-reduced-motion: avoid scheduling RAF-driven updates if user prefers reduced motion
+  const PREFERS_REDUCED_MOTION = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   function scheduleDemoUpdate(v) {
     _pendingDemoValue = v;
+    if (PREFERS_REDUCED_MOTION) {
+      // Apply immediately without animation/RAF
+      if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, _pendingDemoValue || 0.5);
+      _pendingDemoValue = null;
+      return;
+    }
     if (_demoRafId != null) return; // already scheduled
     _demoRafId = _requestRaf(() => {
       try {
@@ -403,29 +432,30 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     // Persist the preference
     chrome.storage.sync.set({ bionicIntensity: v });
 
-    // Ensure active tab is available and inject before messaging
+    // Check if extension is currently enabled before attempting injection
     safeTabAccess((tab) => {
       if (!tab || !tab.id) return;
-      ensureInjected(tab.id, 3, 150).then((injected) => {
-          if (!injected) {
-            console.warn('Could not inject content script; intensity will apply when page is toggled');
-            // Friendly user-facing fallback
-            status.innerHTML = '⚠️ Could not apply instantly<br><small>Will apply when you enable Bionic Reader or try again</small>';
-            status.style.background = 'rgba(255,193,7,0.2)';
-            return;
-          }
-
-        // Send intensity directly to the content script in that tab
-        chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: v }, (resp) => {
-          if (chrome.runtime.lastError) {
-            console.warn('Failed to send intensity to content script:', chrome.runtime.lastError.message);
-          } else {
-            // friendly feedback
-            status.textContent = `Highlight intensity set: ${Math.round(v * 100)}%`;
-            // update demo to reflect final value
-            if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v);
-          }
-        });
+      
+      // First check if bionic reader is already active
+      sendMessageToTab(tab.id, {action: 'getStatus'}, (response, error) => {
+        if (response && response.enabled) {
+          // Already active, just update intensity
+          chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: v }, (resp) => {
+            if (chrome.runtime.lastError) {
+              console.warn('Failed to send intensity to content script:', chrome.runtime.lastError.message);
+            } else {
+              // friendly feedback
+              status.textContent = `Highlight intensity set: ${Math.round(v * 100)}%`;
+              // update demo to reflect final value
+              if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v);
+            }
+          });
+        } else {
+          // Not active yet, just save the preference for when it's toggled on
+          status.textContent = `Intensity set: ${Math.round(v * 100)}% (activate to apply)`;
+          // update demo to reflect final value
+          if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v);
+        }
       });
     });
   });

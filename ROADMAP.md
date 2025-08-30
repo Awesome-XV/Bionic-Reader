@@ -1,17 +1,6 @@
 ### Short-term (0-7 days) - Quick
 
-# 3 Accessibility polish
-Why: Keyboard users and screen reader users to be supported
-Files: popup.html, popup.js
-Tasks:
-    Ensure role="switch", aria-checked, labels, aria-live for status.
-    Add keyboard handlers (Enter/Space) and logical tab order.
-    Respect prefers-reduced-motion for animations.
-Tests
-    Keyboard-only navigation walkthrough.
-    Screen reader spot-check (NVDA/VoiceOver).
-Success: all controls reachable via tab, aria-live announces state
-ETA: 1 day
+# 1 Nothing yet if you want to suggest anything make an issue 
 
 ### Mid-Term (1-3 weeks) - User polish
 

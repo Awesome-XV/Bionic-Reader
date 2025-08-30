@@ -28,6 +28,16 @@
       opacity: 0.8;
       font-size: 14px;
     }
+
+    /* Screen-reader only helper */
+    .sr-only {
+      position: absolute !important;
+      height: 1px; width: 1px;
+      overflow: hidden;
+      clip: rect(1px, 1px, 1px, 1px);
+      white-space: nowrap;
+      border: 0; padding: 0; margin: -1px;
+    }
     
     .toggle-container {
       display: flex;
@@ -45,6 +55,11 @@
       cursor: pointer;
       transition: all 0.3s ease;
       margin: 0 15px;
+    }
+
+    .toggle-switch:focus-visible {
+      outline: 3px solid rgba(255,255,255,0.25);
+      outline-offset: 3px;
     }
     
     .toggle-switch.active {
@@ -128,6 +143,11 @@
     .tips li {
       margin: 4px 0;
     }
+
+    /* Respect user's reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      .toggle-switch, .toggle-slider, .demo, .status { transition: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -138,13 +158,15 @@
   
   <div class="toggle-container">
     <span class="status-text" id="offText">Off</span>
-    <div class="toggle-switch" id="toggleSwitch" role="switch" aria-checked="false" tabindex="0" title="Toggle Bionic Reader">
+  <!-- Accessible label for the switch (screen-reader only) -->
+  <span id="toggleLabel" class="sr-only">Enable Bionic Reader</span>
+  <div class="toggle-switch" id="toggleSwitch" role="switch" aria-checked="false" tabindex="0" title="Toggle Bionic Reader" aria-labelledby="toggleLabel">
       <div class="toggle-slider" aria-hidden="true"></div>
     </div>
     <span class="status-text" id="onText">On</span>
   </div>
   
-  <div class="status" id="status" aria-live="polite">
+  <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">
     Ready to help you read — toggle on to start
   </div>
   
