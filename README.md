@@ -24,6 +24,12 @@ Additional features include:
 - Cross-Browser: Works on Chrome, Edge, and other Chromium browsers
 - Accessibility: Respects user preferences for motion and contrast
 
+## Screenshots
+
+# 1. ![alt text](<Screenshot 2025-08-29 183248.png>)
+
+# 2. ![alt text](<Screenshot 2025-08-26 164356.png>)
+
 ## 📦 Installation Instructions
 
 # Installation thorugh marketplace ONLY AVAILABLE FOR EDGE
