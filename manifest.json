@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bionic Reader",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "description": "Transform any webpage text into bionic reading format for faster, more efficient reading",
   
   "permissions": [
@@ -33,7 +33,19 @@
   
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Bionic Reader - Speed up your reading"
+    "default_title": "Bionic Reader - Speed up your reading",
+    "default_icon": {
+      "16": "Bionic-Reader.png",
+      "32": "Bionic-Reader.png",
+      "48": "Bionic-Reader.png",
+      "128": "Bionic-Reader.png"
+    }
+  },
+  "icons": {
+    "16": "Bionic-Reader.png",
+    "32": "Bionic-Reader.png",
+    "48": "Bionic-Reader.png",
+    "128": "Bionic-Reader.png"
   },
   "commands": {
     "toggle-bionic": {

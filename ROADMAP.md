@@ -19,6 +19,4 @@ ETA: 3–5 days
 
 ### Long Term Stability & distribution
 
-# 1 Publish to Chrome Web Store
-Files: README.md, ROADMAP.md, bionic_reader_terms.md
-Difficulty: medium
+# 1 Nothing yet

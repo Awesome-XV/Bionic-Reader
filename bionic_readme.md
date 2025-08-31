@@ -78,14 +78,6 @@ Rea**ding th**is sen**tence req**uires yo**ur bra**in t**o pro**cess ea**ch com*
 - ❌ **Forms & inputs** - No interference with typing
 - ❌ **Buttons & labels** - UI text stays normal
 
-### Intelligent Word Processing
-| Word Length | Letters Bolded | Example |
-|-------------|---------------|---------|
-| 1-3 letters | 1 letter | **T**he, **i**s, **a**nd |
-| 4-5 letters | 2 letters | **Wo**rd, **Th**is |
-| 6-8 letters | 3 letters | **Rea**ding, **Bet**ter |
-| 9+ letters | ~40% of word | **Inte**lligent, **Proc**essing |
-
 ## 🛠️ Troubleshooting
 
 ### Extension Not Working?
