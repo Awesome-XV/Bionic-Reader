@@ -72,6 +72,17 @@ describe('Background Service Worker', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    
+    // Clear any intervals from background.js
+    try {
+      const background = require.cache[require.resolve('../background.js')];
+      if (background && background.exports && background.exports.clearRateLimitInterval) {
+        background.exports.clearRateLimitInterval();
+      }
+    } catch (e) {
+      // Ignore if cleanup function doesn't exist
+    }
+    
     // Clear runtime error to avoid cross-test contamination
     if (global.chrome && global.chrome.runtime) {
       global.chrome.runtime.lastError = null;

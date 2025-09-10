@@ -6,6 +6,7 @@ describe('popup intensity apply', () => {
     global.chrome = originalChrome;
     jest.resetModules();
     jest.clearAllMocks();
+    jest.clearAllTimers();
   });
 
   test('shows friendly fallback when injection fails', async () => {

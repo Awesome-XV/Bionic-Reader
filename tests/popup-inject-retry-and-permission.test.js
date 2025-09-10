@@ -8,6 +8,7 @@ describe('popup coverage targets', () => {
     global.requestAnimationFrame = originalRAF;
     jest.resetModules();
     jest.clearAllMocks();
+    jest.clearAllTimers();
   // Ensure we always restore real timers to avoid leaked fake timers between tests
   try { jest.useRealTimers(); } catch (e) { /* ignore if not mocked */ }
   });

@@ -10,6 +10,7 @@ describe('popup accessibility', () => {
     if (typeof window !== 'undefined') window.matchMedia = originalMatchMedia;
     jest.resetModules();
     jest.clearAllMocks();
+    jest.clearAllTimers();
     if (jest.isMockFunction(setTimeout)) jest.useRealTimers();
   });
 

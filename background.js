@@ -299,7 +299,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 // Clean up rate limiting data periodically
-setInterval(() => {
+const rateLimitCleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, data] of rateLimitMap.entries()) {
     if (now - data.windowStart > SECURITY_CONFIG.RATE_LIMIT_WINDOW) {
@@ -307,6 +307,11 @@ setInterval(() => {
     }
   }
 }, SECURITY_CONFIG.RATE_LIMIT_WINDOW);
+
+// Export cleanup function for tests
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports.clearRateLimitInterval = () => clearInterval(rateLimitCleanupInterval);
+}
 
 // Secure message listener
 chrome.runtime.onMessage.addListener(handleSecureMessage);

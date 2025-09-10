@@ -8,6 +8,7 @@ describe('popup toggle and keyboard branches', () => {
     global.requestAnimationFrame = originalRAF;
     jest.resetModules();
     jest.clearAllMocks();
+    jest.clearAllTimers();
   });
 
   function makeDomShim() {

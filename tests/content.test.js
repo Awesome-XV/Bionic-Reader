@@ -8,6 +8,7 @@ describe('Content Script Core', () => {
 
   beforeEach(() => {
     jest.resetModules();
+    jest.useFakeTimers();
     
     // Mock Chrome APIs
     mockChrome = {
@@ -74,6 +75,8 @@ describe('Content Script Core', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
   });
 
   test('initializes correctly', () => {

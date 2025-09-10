@@ -5,6 +5,7 @@ describe('popup additional branches', () => {
     global.chrome = originalChrome;
     jest.resetModules();
     jest.clearAllMocks();
+    jest.clearAllTimers();
   });
 
   function makeDomShim() {
