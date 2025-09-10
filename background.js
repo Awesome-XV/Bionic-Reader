@@ -54,7 +54,7 @@ class SecurityValidator {
     }
     
     // Action validation
-    const allowedActions = ['toggle', 'getStatus', 'heartbeat'];
+    const allowedActions = ['toggle', 'getStatus', 'heartbeat', 'getStats', 'saveStats'];
     if (!message.action || !allowedActions.includes(message.action)) {
       return { valid: false, error: 'Invalid or missing action' };
     }
@@ -177,6 +177,50 @@ function handleSecureMessage(message, sender, sendResponse) {
           }
         );
         return true; // Keep channel open for async response
+        
+      case 'getstats':
+        // Forward stats request to content script
+        chrome.tabs.sendMessage(
+          sender.tab.id,
+          { action: 'getstats' },
+          { frameId: 0 },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              sendResponse({ error: 'Failed to get stats', code: 'STATS_ERROR' });
+            } else {
+              sendResponse(response || { sessionStats: { wordsProcessed: 0, activeTime: 0 } });
+            }
+          }
+        );
+        return true;
+        
+      case 'savestats':
+        // Handle stats aggregation (daily/weekly)
+        if (message.stats && typeof message.stats === 'object') {
+          const today = new Date().toDateString();
+          
+          chrome.storage.local.get([today], (result) => {
+            const existingStats = result[today] || { wordsProcessed: 0, activeTime: 0, sessions: 0 };
+            
+            const updatedStats = {
+              wordsProcessed: existingStats.wordsProcessed + (message.stats.wordsProcessed || 0),
+              activeTime: existingStats.activeTime + (message.stats.activeTime || 0),
+              sessions: existingStats.sessions + 1,
+              lastUpdate: Date.now()
+            };
+            
+            chrome.storage.local.set({ [today]: updatedStats }, () => {
+              if (chrome.runtime.lastError) {
+                sendResponse({ error: 'Failed to save stats', code: 'STORAGE_ERROR' });
+              } else {
+                sendResponse({ success: true, stats: updatedStats });
+              }
+            });
+          });
+        } else {
+          sendResponse({ error: 'Invalid stats data', code: 'INVALID_STATS' });
+        }
+        return true;
         
       default:
         sendResponse({ error: 'Unknown action', code: 'UNKNOWN_ACTION' });

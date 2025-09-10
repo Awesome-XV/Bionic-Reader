@@ -278,6 +278,62 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
+  // Statistics helper functions
+  function formatTime(milliseconds) {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m`;
+    } else {
+      return `${seconds}s`;
+    }
+  }
+  
+  function estimateTimeSaved(wordsProcessed) {
+    // Research suggests bionic reading can improve speed by 10-20%
+    // Average reading speed is 200-250 WPM, so time saved per word is roughly 0.01-0.02 seconds
+    const secondsPerWord = 60 / 225; // 225 WPM average
+    const improvementRate = 0.15; // 15% improvement estimate
+    return Math.round(wordsProcessed * secondsPerWord * improvementRate);
+  }
+  
+  function loadAndDisplayStats(statsEnabled = true) {
+    // Skip stats loading if chrome.storage is not available (e.g., in tests)
+    if (!chrome?.storage?.local) {
+      return;
+    }
+    
+    const statsContent = document.getElementById('statsContent');
+    const statsDisabled = document.getElementById('statsDisabled');
+    
+    if (!statsEnabled) {
+      if (statsContent) statsContent.style.display = 'none';
+      if (statsDisabled) statsDisabled.style.display = 'block';
+      return;
+    }
+    
+    if (statsContent) statsContent.style.display = 'block';
+    if (statsDisabled) statsDisabled.style.display = 'none';
+    
+    const today = new Date().toDateString();
+    
+    chrome.storage.local.get([today], (result) => {
+      const todayStats = result[today] || { wordsProcessed: 0, activeTime: 0, sessions: 0 };
+      
+      const wordsElement = document.getElementById('wordsToday');
+      const timeElement = document.getElementById('timeToday');
+      const savedElement = document.getElementById('timeSaved');
+      
+      if (wordsElement) wordsElement.textContent = todayStats.wordsProcessed.toLocaleString();
+      if (timeElement) timeElement.textContent = formatTime(todayStats.activeTime);
+      if (savedElement) savedElement.textContent = formatTime(estimateTimeSaved(todayStats.wordsProcessed) * 1000);
+    });
+  }
+
   // Get current status with enhanced error handling
   safeTabAccess((tab) => {
     sendMessageToTab(tab.id, {action: 'getStatus'}, (response, error) => {
@@ -302,6 +358,35 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       }
     });
   });
+  
+  // Statistics toggle event listener
+  if (statsEnabled) {
+    statsEnabled.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      chrome.storage.sync.set({ statsTrackingEnabled: enabled });
+      
+      loadAndDisplayStats(enabled);
+      
+      // Notify content script about stats preference change
+      safeTabAccess((tab) => {
+        chrome.tabs.sendMessage(tab.id, { 
+          action: 'setStatsEnabled', 
+          statsEnabled: enabled 
+        }, () => {
+          // Ignore errors - content script may not be injected
+        });
+      });
+    });
+  }
+  
+  // Refresh stats every 30 seconds if popup is open and stats are enabled
+  if (chrome?.storage?.local) {
+    setInterval(() => {
+      if (statsEnabled && statsEnabled.checked) {
+        loadAndDisplayStats(true);
+      }
+    }, 30000);
+  }
 
   function updateUI(enabled) {
     if (enabled) {
@@ -462,19 +547,40 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Load saved intensity
-  chrome.storage.sync.get({ bionicIntensity: 0.5, bionicCoverage: 0.4 }, (items) => {
+  // Statistics toggle handling
+  const statsEnabled = document.getElementById('statsEnabled');
+  
+  // Load saved settings including statistics preference
+  chrome.storage.sync.get({ 
+    bionicIntensity: 0.5, 
+    bionicCoverage: 0.4, 
+    statsTrackingEnabled: true 
+  }, (items) => {
     const v = Number(items.bionicIntensity) || 0.5;
     const c = Number(items.bionicCoverage) || 0.4;
+    const statsTracking = Boolean(items.statsTrackingEnabled);
+    
     intensity.value = v;
     setIntensityLabel(v);
+    
     if (coverage) {
       coverage.value = c;
       setCoverageLabel(c);
     }
+    
+    if (statsEnabled) {
+      statsEnabled.checked = statsTracking;
+      loadAndDisplayStats(statsTracking);
+    }
+    
     // Inform content script of current intensity/coverage for active tab
     safeTabAccess((tab) => {
-      chrome.runtime.sendMessage({ action: 'setIntensity', intensity: v, coverage: c }, (resp) => {
+      chrome.runtime.sendMessage({ 
+        action: 'setIntensity', 
+        intensity: v, 
+        coverage: c,
+        statsEnabled: statsTracking 
+      }, (resp) => {
         // ignore errors - content script may not be injected yet
       });
     });

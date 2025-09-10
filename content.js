@@ -31,6 +31,71 @@ let processedNodes = new Set();
 let isProcessing = false;
 let processedCount = 0;
 
+// Statistics tracking
+let sessionStats = {
+  wordsProcessed: 0,
+  startTime: null,
+  activeTime: 0,
+  lastActiveTime: Date.now()
+};
+
+// Statistics preference (default enabled for existing users)
+let STATS_TRACKING_ENABLED = true;
+
+// Statistics helper functions
+function trackWordsProcessed(text) {
+  // Only track if statistics are enabled
+  if (!STATS_TRACKING_ENABLED || !text) return 0;
+  
+  const words = text.match(/\b[a-zA-Z]+\b/g) || [];
+  const wordCount = words.length;
+  sessionStats.wordsProcessed += wordCount;
+  
+  // Track active reading time
+  const now = Date.now();
+  if (sessionStats.startTime === null) {
+    sessionStats.startTime = now;
+  }
+  
+  // If less than 30 seconds since last activity, count as continuous reading
+  if (now - sessionStats.lastActiveTime < 30000) {
+    sessionStats.activeTime += (now - sessionStats.lastActiveTime);
+  }
+  sessionStats.lastActiveTime = now;
+  
+  console.log(`[STATS] Processed ${wordCount} words. Session total: ${sessionStats.wordsProcessed} words`);
+  return wordCount;
+}
+
+function saveStatsToStorage() {
+  // Only save if statistics tracking is enabled and there's data to save
+  if (!STATS_TRACKING_ENABLED || !chrome?.storage?.local || sessionStats.wordsProcessed === 0) return;
+  
+  const today = new Date().toDateString();
+  const sessionData = {
+    wordsProcessed: sessionStats.wordsProcessed,
+    activeTime: sessionStats.activeTime,
+    date: today,
+    timestamp: Date.now()
+  };
+  
+  // Get existing daily stats
+  chrome.storage.local.get([today], (result) => {
+    const existingStats = result[today] || { wordsProcessed: 0, activeTime: 0, sessions: 0 };
+    
+    const updatedStats = {
+      wordsProcessed: existingStats.wordsProcessed + sessionStats.wordsProcessed,
+      activeTime: existingStats.activeTime + sessionStats.activeTime,
+      sessions: existingStats.sessions + 1,
+      lastUpdate: Date.now()
+    };
+    
+    chrome.storage.local.set({ [today]: updatedStats }, () => {
+      console.log(`[STATS] Saved daily stats:`, updatedStats);
+    });
+  });
+}
+
 // Common English digraphs that should stay together
 const DIGRAPHS = new Set([
   'ch', 'sh', 'th', 'wh', 'ph', 'gh', 'ck', 'ng', 'qu', 'sc', 'sk', 'sp', 
@@ -323,6 +388,9 @@ async function processTextNodesBatch(textNodes, startIndex = 0) {
       console.log(`[BATCH] Processing merged text: "${combinedText}"`);
       const transformedHTML = transformText(combinedText);
       
+      // Track words processed for statistics
+      trackWordsProcessed(combinedText);
+      
       if (transformedHTML !== combinedText && transformedHTML.includes('<span class="bionic-fixation"')) {
         console.log(`[BATCH] Transformed: "${transformedHTML}"`);
         const wrapper = createSelectableWrapper(transformedHTML, combinedText);
@@ -466,6 +534,9 @@ async function enableBionic() {
   
   console.log(`Fixed Bionic Reading enabled - processed ${processedCount} nodes total`);
   
+  // Save stats when processing is complete
+  saveStatsToStorage();
+  
   if (processedCount > 0) {
     setTimeout(() => {
     showNotification(`✅ Enhanced ${processedCount} sections – enjoy faster reading!`, 'success');
@@ -481,6 +552,9 @@ function disableBionic() {
   console.log('Disabling Bionic Reading...');
   bionicEnabled = false;
   document.body.classList.remove('bionic-reading-enabled');
+  
+  // Save final session stats
+  saveStatsToStorage();
   
   showNotification('📖 Normal reading restored', 'info');
   
@@ -578,8 +652,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         enabled: bionicEnabled,
         timestamp: Date.now(),
         processedNodes: processedCount,
-        isProcessing: isProcessing
+        isProcessing: isProcessing,
+        sessionStats: {
+          wordsProcessed: sessionStats.wordsProcessed,
+          activeTime: sessionStats.activeTime,
+          startTime: sessionStats.startTime
+        }
       });
+      break;
+      
+    case 'getstats':
+      sendResponse({
+        success: true,
+        sessionStats: sessionStats,
+        statsEnabled: STATS_TRACKING_ENABLED
+      });
+      break;
+      
+    case 'setstatsEnabled':
+      const enabled = Boolean(request.statsEnabled);
+      STATS_TRACKING_ENABLED = enabled;
+      console.log(`[STATS] Statistics tracking ${enabled ? 'enabled' : 'disabled'}`);
+      
+      // If disabling, save current session stats before clearing
+      if (!enabled && sessionStats.wordsProcessed > 0) {
+        saveStatsToStorage();
+      }
+      
+      sendResponse({ success: true, statsEnabled: STATS_TRACKING_ENABLED });
       break;
       
     default:
@@ -633,11 +733,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Load saved intensity from storage if available
+// Load saved settings from storage if available
 if (chrome && chrome.storage && chrome.storage.sync) {
-  chrome.storage.sync.get({ bionicIntensity: 0.5, bionicCoverage: 0.4 }, (items) => {
+  chrome.storage.sync.get({ 
+    bionicIntensity: 0.5, 
+    bionicCoverage: 0.4, 
+    statsTrackingEnabled: true 
+  }, (items) => {
     const v = Number(items.bionicIntensity);
     const c = Number(items.bionicCoverage);
+    const stats = Boolean(items.statsTrackingEnabled);
+    
     if (!isNaN(v)) {
       BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
       console.log('[BIONIC] Loaded intensity from storage:', BIONIC_INTENSITY);
@@ -646,6 +752,9 @@ if (chrome && chrome.storage && chrome.storage.sync) {
       BIONIC_COVERAGE = Math.max(0, Math.min(1, c));
       console.log('[BIONIC] Loaded coverage from storage:', BIONIC_COVERAGE);
     }
+    
+    STATS_TRACKING_ENABLED = stats;
+    console.log('[STATS] Loaded statistics preference from storage:', STATS_TRACKING_ENABLED);
   });
 }
 

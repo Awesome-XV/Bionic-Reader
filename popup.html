@@ -170,6 +170,24 @@
     Ready to help you read — toggle on to start
   </div>
   
+  <div class="stats" id="stats" style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div style="font-weight: 600; opacity: 0.9;">📊 Reading Statistics</div>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+        <input type="checkbox" id="statsEnabled" style="margin: 0;">
+        <span>Track progress</span>
+      </label>
+    </div>
+    <div id="statsContent" style="opacity: 0.8;">
+      <div>Enhanced words: <span id="wordsToday">0</span></div>
+      <div>Reading time: <span id="timeToday">0 min</span></div>
+      <div>Time saved: ~<span id="timeSaved">0 sec</span></div>
+    </div>
+    <div id="statsDisabled" style="display: none; opacity: 0.6; font-style: italic; text-align: center; padding: 10px 0;">
+      Statistics tracking is disabled
+    </div>
+  </div>
+  
   <div class="demo">
     <div class="demo-normal">Normal: Reading this text normally</div>
     <div class="demo-bionic">Bionic: <span class="demo-bold">Rea</span>ding <span class="demo-bold">th</span>is <span class="demo-bold">te</span>xt <span class="demo-bold">nor</span>mally</div>
