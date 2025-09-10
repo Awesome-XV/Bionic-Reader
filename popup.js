@@ -301,6 +301,12 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     return Math.round(wordsProcessed * secondsPerWord * improvementRate);
   }
   
+  // Export functions for testing
+  if (typeof global !== 'undefined') {
+    global.formatTime = formatTime;
+    global.estimateTimeSaved = estimateTimeSaved;
+  }
+  
   function loadAndDisplayStats(statsEnabled = true) {
     // Skip stats loading if chrome.storage is not available (e.g., in tests)
     if (!chrome?.storage?.local) {
@@ -358,35 +364,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       }
     });
   });
-  
-  // Statistics toggle event listener
-  if (statsEnabled) {
-    statsEnabled.addEventListener('change', (e) => {
-      const enabled = e.target.checked;
-      chrome.storage.sync.set({ statsTrackingEnabled: enabled });
-      
-      loadAndDisplayStats(enabled);
-      
-      // Notify content script about stats preference change
-      safeTabAccess((tab) => {
-        chrome.tabs.sendMessage(tab.id, { 
-          action: 'setStatsEnabled', 
-          statsEnabled: enabled 
-        }, () => {
-          // Ignore errors - content script may not be injected
-        });
-      });
-    });
-  }
-  
-  // Refresh stats every 30 seconds if popup is open and stats are enabled
-  if (chrome?.storage?.local) {
-    setInterval(() => {
-      if (statsEnabled && statsEnabled.checked) {
-        loadAndDisplayStats(true);
-      }
-    }, 30000);
-  }
 
   function updateUI(enabled) {
     if (enabled) {
@@ -585,6 +562,35 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       });
     });
   });
+
+  // Statistics toggle event listener
+  if (statsEnabled) {
+    statsEnabled.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      chrome.storage.sync.set({ statsTrackingEnabled: enabled });
+      
+      loadAndDisplayStats(enabled);
+      
+      // Notify content script about stats preference change
+      safeTabAccess((tab) => {
+        chrome.tabs.sendMessage(tab.id, { 
+          action: 'setStatsEnabled', 
+          statsEnabled: enabled 
+        }, () => {
+          // Ignore errors - content script may not be injected
+        });
+      });
+    });
+  }
+
+  // Refresh stats every 30 seconds if popup is open and stats are enabled
+  if (chrome?.storage?.local) {
+    setInterval(() => {
+      if (statsEnabled && statsEnabled.checked) {
+        loadAndDisplayStats(true);
+      }
+    }, 30000);
+  }
 
   intensity.addEventListener('input', (e) => {
     const v = Number(e.target.value);
