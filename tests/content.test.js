@@ -143,6 +143,7 @@ describe('Content Script Core', () => {
     const handler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
     const sendResponse = jest.fn();
     
+    // Note: content.js converts action to lowercase
     handler({ action: 'setStatsEnabled', statsEnabled: true }, {}, sendResponse);
     
     expect(sendResponse).toHaveBeenCalledWith({

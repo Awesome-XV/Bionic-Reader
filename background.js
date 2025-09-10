@@ -149,11 +149,14 @@ function handleSecureMessage(message, sender, sendResponse) {
         
       case 'getstatus':
       case 'toggle':
+      case 'setintensity':
         // Forward to content script with validation
         chrome.tabs.sendMessage(
           sender.tab.id, 
           { 
             action: message.action,
+            intensity: message.intensity,
+            coverage: message.coverage,
             timestamp: Date.now(),
             source: 'background'
           },
@@ -166,13 +169,23 @@ function handleSecureMessage(message, sender, sendResponse) {
                 code: 'CONTENT_SCRIPT_ERROR' 
               });
             } else {
-              // Sanitize response
-              const sanitizedResponse = {
-                success: true,
-                enabled: Boolean(response?.enabled),
-                timestamp: Date.now()
-              };
-              sendResponse(sanitizedResponse);
+              // Sanitize response based on action type
+              if (message.action === 'setintensity') {
+                sendResponse({
+                  success: true,
+                  intensity: response?.intensity,
+                  coverage: response?.coverage,
+                  timestamp: Date.now()
+                });
+              } else {
+                // Default sanitized response for toggle/getstatus
+                const sanitizedResponse = {
+                  success: true,
+                  enabled: Boolean(response?.enabled),
+                  timestamp: Date.now()
+                };
+                sendResponse(sanitizedResponse);
+              }
             }
           }
         );

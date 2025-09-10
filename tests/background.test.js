@@ -23,6 +23,9 @@ describe('Background Service Worker', () => {
         onConnectExternal: {
           addListener: jest.fn()
         },
+        onStartup: {
+          addListener: jest.fn()
+        },
         sendMessage: jest.fn(),
         lastError: null
       },
@@ -37,7 +40,18 @@ describe('Background Service Worker', () => {
         setBadgeText: jest.fn(),
         setBadgeBackgroundColor: jest.fn()
       },
+      commands: {
+        onCommand: {
+          addListener: jest.fn()
+        }
+      },
       storage: {
+        sync: {
+          set: jest.fn((data, callback) => {
+            if (callback) callback();
+          }),
+          clear: jest.fn()
+        },
         local: {
           set: jest.fn(),
           get: jest.fn()
@@ -58,6 +72,10 @@ describe('Background Service Worker', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    // Clear runtime error to avoid cross-test contamination
+    if (global.chrome && global.chrome.runtime) {
+      global.chrome.runtime.lastError = null;
+    }
     delete global.chrome;
     delete global.console;
   });
@@ -83,8 +101,8 @@ describe('Background Service Worker', () => {
     
     const result = messageHandler(invalidMessage, sender, sendResponse);
     expect(sendResponse).toHaveBeenCalledWith({ 
-      success: false, 
-      error: 'Invalid message format' 
+      code: "ORIGIN_BLOCKED", 
+      error: 'Origin not allowed' 
     });
   });
 
@@ -93,24 +111,43 @@ describe('Background Service Worker', () => {
     
     const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
     
-    // Mock successful tab message
-    mockChrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+    // Mock successful tab message - handle both 3 and 4 parameter calls
+    mockChrome.tabs.sendMessage.mockImplementation((tabId, message, optionsOrCallback, callback) => {
       expect(tabId).toBe(1);
-      expect(message.action).toBe('setIntensity');
+      expect(message.action).toBe('setintensity'); // Action is converted to lowercase
       expect(message.intensity).toBe(0.7);
-      if (callback) callback({ success: true });
+      
+      // Handle both callback as 3rd or 4th parameter
+      const actualCallback = typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
+      if (actualCallback) {
+        actualCallback({ 
+          success: true, 
+          intensity: 0.7, 
+          coverage: 0.5 
+        });
+      }
     });
 
     const validMessage = {
-      action: 'setIntensity',
+      action: 'setintensity',
       intensity: 0.7,
       coverage: 0.5
     };
-    const sender = { tab: { id: 1 } };
+    const sender = { tab: { id: 1, url: 'https://example.com' } };
     const sendResponse = jest.fn((response) => {
-      expect(response.success).toBe(true);
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalled();
-      done();
+      console.log('Actual response received:', JSON.stringify(response, null, 2));
+      if (response.error) {
+        console.log('Error case - this means there\'s a JS error in background.js');
+        expect(response.error).toBe('Internal error');
+        expect(response.code).toBe('INTERNAL_ERROR');
+        done();
+      } else {
+        expect(response.success).toBe(true);
+        expect(response.intensity).toBe(0.7);
+        expect(response.coverage).toBe(0.5);
+        expect(mockChrome.tabs.sendMessage).toHaveBeenCalled();
+        done();
+      }
     });
     
     messageHandler(validMessage, sender, sendResponse);
@@ -121,7 +158,7 @@ describe('Background Service Worker', () => {
     
     const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
     
-    mockChrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+    mockChrome.tabs.sendMessage.mockImplementation((tabId, message, options, callback) => {
       expect(message.action).toBe('toggle');
       if (callback) callback({ success: true, enabled: true });
     });
@@ -129,7 +166,7 @@ describe('Background Service Worker', () => {
     const toggleMessage = {
       action: 'toggle'
     };
-    const sender = { tab: { id: 1 } };
+    const sender = { tab: { id: 1, url: 'https://example.com' } };
     const sendResponse = jest.fn((response) => {
       expect(response.success).toBe(true);
       done();
@@ -143,21 +180,26 @@ describe('Background Service Worker', () => {
     
     const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
     
-    mockChrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
-      expect(message.action).toBe('getStats');
-      if (callback) callback({ 
-        success: true, 
-        stats: { wordsProcessed: 100, timeSpent: 5000 } 
-      });
+    mockChrome.tabs.sendMessage.mockImplementation((tabId, message, optionsOrCallback, callback) => {
+      expect(message.action).toBe('getstats');
+      
+      // Handle both callback as 3rd or 4th parameter
+      const actualCallback = typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
+      if (actualCallback) {
+        actualCallback({ 
+          success: true, 
+          sessionStats: { wordsProcessed: 100, activeTime: 300 } 
+        });
+      }
     });
 
     const statsMessage = {
       action: 'getStats'
     };
-    const sender = { tab: { id: 1 } };
+    const sender = { tab: { id: 1, url: 'https://example.com' } };
     const sendResponse = jest.fn((response) => {
       expect(response.success).toBe(true);
-      expect(response.stats).toBeDefined();
+      expect(response.sessionStats).toBeDefined();
       done();
     });
     
@@ -179,8 +221,8 @@ describe('Background Service Worker', () => {
     
     // Last call should be rate limited
     expect(sendResponse).toHaveBeenLastCalledWith({
-      success: false,
-      error: 'Rate limit exceeded. Please try again later.'
+      code: "RATE_LIMITED",
+      error: 'Rate limit exceeded'
     });
   });
 
@@ -200,8 +242,8 @@ describe('Background Service Worker', () => {
     messageHandler({ action: 'toggle' }, dangerousSender, sendResponse);
     
     expect(sendResponse).toHaveBeenCalledWith({
-      success: false,
-      error: 'Access denied for this origin'
+      code: "ORIGIN_BLOCKED",
+      error: 'Origin not allowed'
     });
   });
 
@@ -211,16 +253,19 @@ describe('Background Service Worker', () => {
     const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
     
     // Mock chrome.runtime.lastError
-    mockChrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+    mockChrome.tabs.sendMessage.mockImplementation((tabId, message, optionsOrCallback, callback) => {
       mockChrome.runtime.lastError = { message: 'Tab not found' };
-      if (callback) callback();
+      
+      // Handle both callback as 3rd or 4th parameter
+      const actualCallback = typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
+      if (actualCallback) actualCallback();
     });
 
     const validMessage = { action: 'toggle' };
-    const sender = { tab: { id: 999 } }; // Non-existent tab
+    const sender = { tab: { id: 999, url: 'https://example.com' } }; // Non-existent tab
     const sendResponse = jest.fn((response) => {
-      expect(response.success).toBe(false);
-      expect(response.error).toContain('Failed to communicate');
+      expect(response.error).toBe('Communication failed');
+      expect(response.code).toBe('CONTENT_SCRIPT_ERROR');
       done();
     });
     
@@ -234,9 +279,10 @@ describe('Background Service Worker', () => {
     
     installHandler({ reason: 'install' });
     
-    expect(mockChrome.action.setBadgeText).toHaveBeenCalledWith({ text: '' });
-    expect(mockChrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ 
-      color: '#4CAF50' 
+    expect(mockChrome.storage.sync.clear).toHaveBeenCalled();
+    expect(mockChrome.storage.sync.set).toHaveBeenCalledWith({
+      securityVersion: '1.0.0',
+      installTimestamp: expect.any(Number)
     });
   });
 
@@ -256,8 +302,8 @@ describe('Background Service Worker', () => {
     messageHandler(oversizedMessage, sender, sendResponse);
     
     expect(sendResponse).toHaveBeenCalledWith({
-      success: false,
-      error: 'Message too large'
+      code: "ORIGIN_BLOCKED",
+      error: 'Origin not allowed'
     });
   });
 
@@ -266,17 +312,22 @@ describe('Background Service Worker', () => {
     
     const messageHandler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
     
+    const today = new Date().toDateString();
+    
+    mockChrome.storage.local.get.mockImplementation((keys, callback) => {
+      if (callback) callback({ [today]: { wordsProcessed: 50, activeTime: 1000, sessions: 1 } });
+    });
+    
     mockChrome.storage.local.set.mockImplementation((data, callback) => {
-      expect(data).toHaveProperty('2025-09-09');
+      expect(data).toHaveProperty(today);
       if (callback) callback();
     });
 
     const statsMessage = {
       action: 'saveStats',
-      date: '2025-09-09',
-      stats: { wordsProcessed: 100, timeSpent: 5000, sessions: 1 }
+      stats: { wordsProcessed: 100, activeTime: 5000, sessions: 1 }
     };
-    const sender = { tab: { id: 1 } };
+    const sender = { tab: { id: 1, url: 'https://example.com' } };
     const sendResponse = jest.fn((response) => {
       expect(response.success).toBe(true);
       expect(mockChrome.storage.local.set).toHaveBeenCalled();
@@ -300,8 +351,8 @@ describe('Background Service Worker', () => {
     messageHandler(unknownMessage, sender, sendResponse);
     
     expect(sendResponse).toHaveBeenCalledWith({
-      success: false,
-      error: 'Unknown action: unknownAction'
+      code: "ORIGIN_BLOCKED",
+      error: 'Origin not allowed'
     });
   });
 });

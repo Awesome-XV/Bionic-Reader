@@ -669,7 +669,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
       break;
       
-    case 'setstatsEnabled':
+    case 'setstatsenabled':
       const enabled = Boolean(request.statsEnabled);
       STATS_TRACKING_ENABLED = enabled;
       console.log(`[STATS] Statistics tracking ${enabled ? 'enabled' : 'disabled'}`);
@@ -691,7 +691,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // Handle runtime intensity/coverage changes
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request && request.action === 'setIntensity') {
+  if (request && (request.action === 'setIntensity' || request.action === 'setintensity')) {
     const v = Number(request.intensity);
     const c = Number(request.coverage);
     if (!isNaN(v)) {
