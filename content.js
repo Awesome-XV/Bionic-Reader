@@ -21,6 +21,8 @@ const CONFIG = {
 
 // Intensity (0..1) controls how aggressive bolding is; default 0.5
 let BIONIC_INTENSITY = 0.5;
+// Coverage (0..1) controls bolding visual weight (how heavy the bold looks)
+let BIONIC_COVERAGE = 0.4;
 
 // State management
 let bionicEnabled = false;
@@ -109,11 +111,13 @@ function calculateBionicBoldPositions(word) {
   const letterString = letters.join('');
   const isFunction = isFunctionWord(word);
   
-  // Keep the bold-letter count deterministic and independent of intensity.
-  // Small words keep a larger ratio; longer words use a smaller prefix.
+  // Base ratio depends on small/long words and function/content words.
   const baseRatio = N <= 3 ? 0.66 : (isFunction ? CONFIG.FUNCTION_WORD_RATIO : CONFIG.CONTENT_WORD_RATIO);
-  const scaled = Math.max(0.05, Math.min(0.95, baseRatio));
-  const B = Math.min(N - 1, Math.ceil(N * scaled));
+  // Scale baseRatio by intensity so BIONIC_INTENSITY controls how many letters are bolded.
+  // Use a reasonable multiplier range: multiplier = 0.5 + BIONIC_INTENSITY (maps 0..1 -> 0.5..1.5)
+  const intensityMultiplier = Math.max(0, Math.min(2, 0.5 + Number(BIONIC_INTENSITY || 0.5)));
+  const scaled = Math.max(0.05, Math.min(0.95, baseRatio * intensityMultiplier));
+  const B = Math.min(N - 1, Math.max(1, Math.ceil(N * scaled)));
   
   const positions = [];
   for (let i = 0; i < B; i++) {
@@ -585,22 +589,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return false;
 });
 
-// Handle runtime intensity changes
+// Handle runtime intensity/coverage changes
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request && request.action === 'setIntensity') {
     const v = Number(request.intensity);
+    const c = Number(request.coverage);
     if (!isNaN(v)) {
       BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
       console.log('[BIONIC] Intensity set to', BIONIC_INTENSITY);
-      
-      // Update existing bionic spans with new font-weight
-      const weight = Math.round(300 + (BIONIC_INTENSITY * 600));
-      const spans = document.querySelectorAll('.bionic-fixation');
-      spans.forEach(span => {
-        span.style.fontWeight = weight;
+      // If coverage provided, update it (coverage controls visual weight)
+      if (!isNaN(c)) {
+        BIONIC_COVERAGE = Math.max(0, Math.min(1, c));
+        console.log('[BIONIC] Coverage (weight) set to', BIONIC_COVERAGE);
+      }
+
+      // Compute font-weight using coverage
+      const weight = Math.round(200 + (BIONIC_COVERAGE * 800));
+      const wrappers = document.querySelectorAll('.bionic-wrapper');
+      wrappers.forEach(wrapper => {
+        try {
+          const original = originalTexts.get(wrapper) || wrapper.textContent || '';
+          // Re-transform using the new intensity while preserving original text
+          const transformed = transformText(original);
+          // Replace innerHTML only if transformation produced bionic spans
+          if (transformed && transformed !== original && transformed.includes('bionic-fixation')) {
+            wrapper.innerHTML = transformed;
+            // Update font-weight for any existing spans
+            wrapper.querySelectorAll('.bionic-fixation').forEach(s => s.style.fontWeight = weight);
+          } else {
+            // Fallback: update font-weight of existing spans
+            wrapper.querySelectorAll('.bionic-fixation').forEach(s => s.style.fontWeight = weight);
+          }
+        } catch (err) {
+          wrapper.querySelectorAll('.bionic-fixation').forEach(s => s.style.fontWeight = weight);
+        }
       });
-      
-      sendResponse({ success: true, intensity: BIONIC_INTENSITY });
+
+      sendResponse({ success: true, intensity: BIONIC_INTENSITY, coverage: BIONIC_COVERAGE });
     } else {
       sendResponse({ error: 'Invalid intensity' });
     }
@@ -610,11 +635,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // Load saved intensity from storage if available
 if (chrome && chrome.storage && chrome.storage.sync) {
-  chrome.storage.sync.get({ bionicIntensity: 0.5 }, (items) => {
+  chrome.storage.sync.get({ bionicIntensity: 0.5, bionicCoverage: 0.4 }, (items) => {
     const v = Number(items.bionicIntensity);
+    const c = Number(items.bionicCoverage);
     if (!isNaN(v)) {
       BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
       console.log('[BIONIC] Loaded intensity from storage:', BIONIC_INTENSITY);
+    }
+    if (!isNaN(c)) {
+      BIONIC_COVERAGE = Math.max(0, Math.min(1, c));
+      console.log('[BIONIC] Loaded coverage from storage:', BIONIC_COVERAGE);
     }
   });
 }

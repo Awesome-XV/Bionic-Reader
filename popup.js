@@ -4,27 +4,67 @@
 const DEMO_SAMPLE = 'Reading this demo text normally.';
 
 // Return HTML string with simple bionic-style bolding based on intensity
-function updateDemoHTML(text, intensity = 0.5) {
+function updateDemoHTML(text, intensity = 0.5, coverage = undefined) {
   if (!text) return '';
   const parts = text.split(/(\s+)/);
-  function calcBoldCount(word) {
+  function calcBoldCount(word, intensity = 0.5) {
     const letters = (word.match(/[a-zA-Z]/g) || []).length;
     if (letters <= 1) return 0;
-    // Keep the bold-letter count deterministic and independent of intensity.
     // Small words keep a larger ratio; longer words use a smaller prefix.
     const baseRatio = letters <= 3 ? 0.66 : 0.5;
-    const scaled = Math.max(0.05, Math.min(0.95, baseRatio));
+    // Scale by intensity so popup preview matches content script behavior
+    const multiplier = Math.max(0, Math.min(2, 0.5 + Number(intensity || 0.5)));
+    const scaled = Math.max(0.05, Math.min(0.95, baseRatio * multiplier));
     return Math.min(letters - 1, Math.ceil(letters * scaled));
   }
 
-  // Map intensity [0,1] to font-weight range [300,900] for more visible difference
-  const weight = Math.round(300 + ((Number(intensity) || 0.5) * 600));
+  // Decide weight source: if coverage is provided, use it; otherwise fall back to intensity
+  const weightSource = (typeof coverage === 'undefined' || coverage === null) ? (Number(intensity) || 0.5) : (Number(coverage) || 0.4);
+  const weight = Math.round(200 + (weightSource * 800));
 
   return parts.map((part) => {
     if (/^\s+$/.test(part)) return part;
     let letterIndex = 0;
     const chars = part.split('');
-    const boldCount = calcBoldCount(part);
+  const boldCount = calcBoldCount(part, intensity);
+    return chars.map(ch => {
+      if (/[a-zA-Z]/.test(ch)) {
+        const out = (letterIndex < boldCount) ? `<span class="demo-bold" style="font-weight:${weight}">${ch}</span>` : ch;
+        letterIndex++;
+        return out;
+      }
+      return ch;
+    }).join('');
+  }).join('');
+}
+
+// Demo-only helper: allow coverage override when previewing in popup
+function updateDemoHTMLWithCoverage(text, intensity = 0.5, coverage = undefined) {
+  if (!text) return '';
+  const parts = text.split(/(\s+)/);
+
+  function calcBoldCountWithCoverage(word, intensity = 0.5) {
+    const letters = (word.match(/[a-zA-Z]/g) || []).length;
+    if (letters <= 1) return 0;
+    if (coverage == null) {
+      const baseRatio = letters <= 3 ? 0.66 : 0.5;
+      const multiplier = Math.max(0, Math.min(2, 0.5 + Number(intensity || 0.5)));
+      const scaled = Math.max(0.05, Math.min(0.95, baseRatio * multiplier));
+      return Math.min(letters - 1, Math.ceil(letters * scaled));
+    }
+    // coverage is a fraction 0..1 representing portion to bold
+    const cov = Math.max(0.05, Math.min(0.95, Number(coverage) || 0.4));
+    return Math.min(letters - 1, Math.ceil(letters * cov));
+  }
+
+  const weightSource = (typeof coverage === 'undefined' || coverage === null) ? (Number(intensity) || 0.5) : (Number(coverage) || 0.4);
+  const weight = Math.round(200 + (weightSource * 800));
+
+  return parts.map((part) => {
+    if (/^\s+$/.test(part)) return part;
+    let letterIndex = 0;
+    const chars = part.split('');
+  const boldCount = calcBoldCountWithCoverage(part, intensity);
     return chars.map(ch => {
       if (/[a-zA-Z]/.test(ch)) {
         const out = (letterIndex < boldCount) ? `<span class="demo-bold" style="font-weight:${weight}">${ch}</span>` : ch;
@@ -359,12 +399,22 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   // Intensity slider wiring
   const intensity = document.getElementById('intensity');
   const intensityValue = document.getElementById('intensityValue');
+  const coverage = document.getElementById('coverage');
+  const coverageValue = document.getElementById('coverageValue');
   // ARIA attributes for the range control
   intensity.setAttribute('role', 'slider');
   intensity.setAttribute('aria-valuemin', '0');
   intensity.setAttribute('aria-valuemax', '1');
   intensity.setAttribute('aria-valuenow', intensity.value);
   intensity.setAttribute('aria-label', 'Highlight intensity');
+  // Coverage slider ARIA
+  if (coverage) {
+    coverage.setAttribute('role', 'slider');
+    coverage.setAttribute('aria-valuemin', '0');
+    coverage.setAttribute('aria-valuemax', '1');
+    coverage.setAttribute('aria-valuenow', coverage.value);
+    coverage.setAttribute('aria-label', 'Highlight coverage');
+  }
 
   function setIntensityLabel(v) {
     const pct = Math.round(v * 100);
@@ -373,11 +423,18 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   if (intensity) intensity.setAttribute('aria-valuenow', String(v));
   }
 
+  function setCoverageLabel(v) {
+    const pct = Math.round(v * 100);
+    if (coverageValue) coverageValue.textContent = `${pct}%`;
+    if (coverage) coverage.setAttribute('aria-valuenow', String(v));
+  }
+
   // Demo element wiring
   const demoBionic = document.querySelector('.demo-bionic');
   const demoNormal = document.querySelector('.demo-normal');
   if (demoNormal) demoNormal.textContent = 'Normal: ' + DEMO_SAMPLE;
-  if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, intensity.value || 0.5);
+  // Use stored coverage when rendering demo preview if available
+  if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, intensity.value || 0.5, coverage ? coverage.value : 0.4);
 
   // Throttled demo updater using requestAnimationFrame (with setTimeout fallback)
   const _requestRaf = (typeof requestAnimationFrame !== 'undefined') ? requestAnimationFrame : (cb) => setTimeout(cb, 16);
@@ -390,14 +447,14 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     _pendingDemoValue = v;
     if (PREFERS_REDUCED_MOTION) {
       // Apply immediately without animation/RAF
-      if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, _pendingDemoValue || 0.5);
+      if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, _pendingDemoValue || 0.5, coverage ? coverage.value : 0.4);
       _pendingDemoValue = null;
       return;
     }
     if (_demoRafId != null) return; // already scheduled
     _demoRafId = _requestRaf(() => {
       try {
-        if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, _pendingDemoValue || 0.5);
+        if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, _pendingDemoValue || 0.5, coverage ? coverage.value : 0.4);
       } finally {
         _demoRafId = null;
         _pendingDemoValue = null;
@@ -406,13 +463,18 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   }
 
   // Load saved intensity
-  chrome.storage.sync.get({ bionicIntensity: 0.5 }, (items) => {
+  chrome.storage.sync.get({ bionicIntensity: 0.5, bionicCoverage: 0.4 }, (items) => {
     const v = Number(items.bionicIntensity) || 0.5;
+    const c = Number(items.bionicCoverage) || 0.4;
     intensity.value = v;
     setIntensityLabel(v);
-    // Inform content script of current intensity for active tab
+    if (coverage) {
+      coverage.value = c;
+      setCoverageLabel(c);
+    }
+    // Inform content script of current intensity/coverage for active tab
     safeTabAccess((tab) => {
-      chrome.runtime.sendMessage({ action: 'setIntensity', intensity: v }, (resp) => {
+      chrome.runtime.sendMessage({ action: 'setIntensity', intensity: v, coverage: c }, (resp) => {
         // ignore errors - content script may not be injected yet
       });
     });
@@ -426,11 +488,22 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   scheduleDemoUpdate(v);
   });
 
+  // Coverage live preview
+  if (coverage) {
+    coverage.addEventListener('input', (e) => {
+      const c = Number(e.target.value);
+      setCoverageLabel(c);
+      // Update demo preview using coverage by temporarily passing a combined param
+      // Note: updateDemoHTML currently accepts intensity; we'll use a small wrapper
+      if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTMLWithCoverage(DEMO_SAMPLE, Number(intensity.value || 0.5), c);
+    });
+  }
+
   // Updated intensity change handler (call this in place of your previous handler)
   intensity.addEventListener('change', (e) => {
     const v = Number(e.target.value);
     // Persist the preference
-    chrome.storage.sync.set({ bionicIntensity: v });
+  chrome.storage.sync.set({ bionicIntensity: v });
 
     // Check if extension is currently enabled before attempting injection
     safeTabAccess((tab) => {
@@ -440,24 +513,45 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       sendMessageToTab(tab.id, {action: 'getStatus'}, (response, error) => {
         if (response && response.enabled) {
           // Already active, just update intensity
-          chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: v }, (resp) => {
+          chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: v, coverage: Number(coverage ? coverage.value : 0.4) }, (resp) => {
             if (chrome.runtime.lastError) {
               console.warn('Failed to send intensity to content script:', chrome.runtime.lastError.message);
             } else {
               // friendly feedback
               status.textContent = `Highlight intensity set: ${Math.round(v * 100)}%`;
               // update demo to reflect final value
-              if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v);
+          if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v, coverage ? coverage.value : 0.4);
             }
           });
         } else {
           // Not active yet, just save the preference for when it's toggled on
           status.textContent = `Intensity set: ${Math.round(v * 100)}% (activate to apply)`;
-          // update demo to reflect final value
-          if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v);
+          // update demo to reflect final value (including coverage)
+          const cVal = coverage ? Number(coverage.value) : 0.4;
+          if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTMLWithCoverage(DEMO_SAMPLE, v, cVal);
         }
       });
     });
+
+  // Coverage change handler
+  if (coverage) {
+    coverage.addEventListener('change', (e) => {
+      const c = Number(e.target.value);
+      chrome.storage.sync.set({ bionicCoverage: c });
+      safeTabAccess((tab) => {
+        if (!tab || !tab.id) return;
+        // If active, send coverage update to content script
+        sendMessageToTab(tab.id, { action: 'getStatus' }, (response, error) => {
+          if (response && response.enabled) {
+            chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: Number(intensity.value || 0.5), coverage: c }, () => {});
+            status.textContent = `Highlight coverage set: ${Math.round(c * 100)}%`;
+          } else {
+            status.textContent = `Coverage set: ${Math.round(c * 100)}% (activate to apply)`;
+          }
+        });
+      });
+    });
+  }
   });
 
   // Reset button
@@ -468,8 +562,8 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     setIntensityLabel(defaultVal);
     chrome.storage.sync.set({ bionicIntensity: defaultVal }, () => {
       // Notify content script
-      safeTabAccess((tab) => {
-        chrome.runtime.sendMessage({ action: 'setIntensity', intensity: defaultVal }, () => {});
+        safeTabAccess((tab) => {
+        chrome.runtime.sendMessage({ action: 'setIntensity', intensity: defaultVal, coverage: Number(coverage ? coverage.value : 0.4) }, () => {});
       });
     });
     status.textContent = '✨ Reset to default intensity';
