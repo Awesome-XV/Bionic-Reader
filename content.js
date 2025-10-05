@@ -1,16 +1,54 @@
-// Bionic Reading Extension - COMPLETELY FIXED Implementation
+/**
+ * Bionic Reader Content Script
+ * 
+ * Transforms web page text into bionic reading format by selectively
+ * bolding the first portion of words to improve reading speed and focus.
+ * 
+ * @version 1.0.0
+ * @license MIT
+ */
 'use strict';
 
 // Debug mode flag - set to true only for development
 const DEBUG_MODE = false;
 
-// Debug logging utility
+/**
+ * Debug logging utility - only outputs when DEBUG_MODE is true.
+ * 
+ * @param {...*} args - Arguments to log to console
+ */
 function debugLog(...args) {
   if (DEBUG_MODE) {
     console.log(...args);
   }
 }
 
+/**
+ * @typedef {Object} BionicConfig
+ * @property {number} MAX_NODES_PER_BATCH - Maximum nodes to process in one batch
+ * @property {number} MAX_TOTAL_NODES - Maximum total nodes to process per session
+ * @property {number} MAX_TEXT_LENGTH - Maximum length of text to process
+ * @property {number} PROCESSING_TIMEOUT - Timeout for processing in milliseconds
+ * @property {number} BATCH_DELAY - Delay between batches in milliseconds
+ * @property {number} CONTENT_WORD_RATIO - Bold ratio for content words (0.0-1.0)
+ * @property {number} FUNCTION_WORD_RATIO - Bold ratio for function words (0.0-1.0)
+ * @property {number} SHORT_WORD_THRESHOLD - Length threshold for short words
+ * @property {number} INTENSITY_BASE_MULTIPLIER - Base multiplier for intensity scaling
+ * @property {number} INTENSITY_RANGE - Range for intensity scaling
+ * @property {number} INTENSITY_MAX_MULTIPLIER - Maximum intensity multiplier
+ * @property {number} SMALL_WORD_RATIO - Bold ratio for small words
+ * @property {number} SMALL_WORD_THRESHOLD - Length threshold for small words
+ * @property {number} MIN_BOLD_RATIO - Minimum bold ratio allowed
+ * @property {number} MAX_BOLD_RATIO - Maximum bold ratio allowed
+ * @property {number} OBSERVER_MIN_DELAY - Minimum observer delay (ms)
+ * @property {number} OBSERVER_MAX_DELAY - Maximum observer delay (ms)
+ * @property {number} OBSERVER_DELAY_PER_NODE - Delay per node (ms)
+ * @property {number} OBSERVER_CONTINUOUS_READING_GAP - Gap for continuous reading (ms)
+ * @property {boolean} ENABLE_DIGRAPH_PROTECTION - Whether to protect digraphs
+ * @property {boolean} ENABLE_VOWEL_OPTIMIZATION - Whether to optimize vowel positions
+ */
+
+/** @type {BionicConfig} */
 // Configuration based on official Bionic Reading research
 const CONFIG = {
   MAX_NODES_PER_BATCH: 100,
@@ -24,15 +62,34 @@ const CONFIG = {
   FUNCTION_WORD_RATIO: 0.35,   // Function words (articles, prepositions, etc.)
   SHORT_WORD_THRESHOLD: 2,     // Words ≤ 2 letters always bold first letter only
   
+  // Bionic Reading Algorithm Constants (Issue #13)
+  INTENSITY_BASE_MULTIPLIER: 0.5,      // Maps 0 intensity to 0.5x base ratio
+  INTENSITY_RANGE: 1.0,                // Maps 1 intensity to 1.5x base ratio (0.5 + 1.0)
+  INTENSITY_MAX_MULTIPLIER: 2.0,       // Hard cap at 2.0x base ratio
+  SMALL_WORD_RATIO: 0.66,              // Words ≤ 3 letters bold 66% of letters
+  SMALL_WORD_THRESHOLD: 3,             // Threshold for "small" vs "long" words
+  MIN_BOLD_RATIO: 0.05,                // Never bold less than 5% of word
+  MAX_BOLD_RATIO: 0.95,                // Never bold more than 95% of word
+  
+  // Dynamic Content Observer Timings (Issue #17)
+  OBSERVER_MIN_DELAY: 300,             // Minimum delay before processing new nodes (ms)
+  OBSERVER_MAX_DELAY: 1500,            // Maximum delay before processing new nodes (ms)
+  OBSERVER_DELAY_PER_NODE: 30,         // Additional delay per new node (ms)
+  OBSERVER_CONTINUOUS_READING_GAP: 30000,  // Gap to consider reading continuous (ms)
+  
+  // Performance Monitoring (Issue #28)
+  ENABLE_PERFORMANCE_MONITORING: DEBUG_MODE,  // Track processing performance
+  PERFORMANCE_LOG_THRESHOLD: 100,      // Only log operations taking > 100ms
+  
   // Optional features
   ENABLE_DIGRAPH_PROTECTION: true,
   ENABLE_VOWEL_OPTIMIZATION: false // Disabled for more predictable results
 };
 
-// Intensity (0..1) controls how aggressive bolding is; default 0.5
-let BIONIC_INTENSITY = 0.5;
+// Intensity (0..1) controls how aggressive bolding is; default 0.5 (Issue #19: Renamed to camelCase)
+let bionicIntensity = 0.5;
 // Coverage (0..1) controls bolding visual weight (how heavy the bold looks)
-let BIONIC_COVERAGE = 0.4;
+let bionicCoverage = 0.4;
 
 // State management
 let bionicEnabled = false;
@@ -42,6 +99,18 @@ let isProcessing = false;
 let processedCount = 0;
 let processingAbortController = null;
 
+// Performance: Function word lookup cache (Issue #21)
+const functionWordCache = new Map();
+
+/**
+ * @typedef {Object} SessionStats
+ * @property {number} wordsProcessed - Total words processed in current session
+ * @property {number|null} startTime - Session start timestamp
+ * @property {number} activeTime - Total active reading time in milliseconds
+ * @property {number} lastActiveTime - Last activity timestamp
+ */
+
+/** @type {SessionStats} */
 // Statistics tracking
 let sessionStats = {
   wordsProcessed: 0,
@@ -50,13 +119,23 @@ let sessionStats = {
   lastActiveTime: Date.now()
 };
 
-// Statistics preference (default enabled for existing users)
-let STATS_TRACKING_ENABLED = true;
+// Statistics preference (default enabled for existing users) (Issue #19: Renamed to camelCase)
+let statsTrackingEnabled = true;
 
+/**
+ * Tracks words processed in the current session for reading statistics.
+ * Only tracks if statsTrackingEnabled is true.
+ * 
+ * @param {string} text - Text content to count words from
+ * @returns {number} Number of words counted in the text
+ * 
+ * @example
+ * trackWordsProcessed("Hello world") // Returns 2
+ */
 // Statistics helper functions
 function trackWordsProcessed(text) {
   // Only track if statistics are enabled
-  if (!STATS_TRACKING_ENABLED || !text) return 0;
+  if (!statsTrackingEnabled || !text) return 0;
   
   const words = text.match(/\b[a-zA-Z]+\b/g) || [];
   const wordCount = words.length;
@@ -68,8 +147,8 @@ function trackWordsProcessed(text) {
     sessionStats.startTime = now;
   }
   
-  // If less than 30 seconds since last activity, count as continuous reading
-  if (now - sessionStats.lastActiveTime < 30000) {
+  // If less than 30 seconds since last activity, count as continuous reading (Issue #17)
+  if (now - sessionStats.lastActiveTime < CONFIG.OBSERVER_CONTINUOUS_READING_GAP) {
     sessionStats.activeTime += (now - sessionStats.lastActiveTime);
   }
   sessionStats.lastActiveTime = now;
@@ -78,9 +157,17 @@ function trackWordsProcessed(text) {
   return wordCount;
 }
 
+/**
+ * Saves current session reading statistics to Chrome local storage.
+ * Merges with existing daily totals if available.
+ * 
+ * Only saves if statsTrackingEnabled is true and there are words processed.
+ * 
+ * @returns {void}
+ */
 function saveStatsToStorage() {
   // Only save if statistics tracking is enabled and there's data to save
-  if (!STATS_TRACKING_ENABLED || !chrome?.storage?.local || sessionStats.wordsProcessed === 0) return;
+  if (!statsTrackingEnabled || !chrome?.storage?.local || sessionStats.wordsProcessed === 0) return;
   
   const today = new Date().toDateString();
   const sessionData = {
@@ -144,15 +231,46 @@ const FUNCTION_WORDS = new Set([
 console.log('[DEBUG] Function words set includes "and":', FUNCTION_WORDS.has('and'));
 
 /**
- * Determines if a word is a function word (gets r = 0.35) or content word (gets r = 0.5)
+ * Determines if a word is a function word (articles, prepositions, etc.) 
+ * or a content word (nouns, verbs, adjectives).
+ * 
+ * Function words receive lower bolding emphasis (35%) vs content words (50%).
+ * Uses memoization cache for performance (Issue #21).
+ * 
+ * @param {string} word - Word to classify
+ * @returns {boolean} True if word is a function word, false if content word
+ * 
+ * @example
+ * isFunctionWord("the")     // true
+ * isFunctionWord("reading") // false
  */
 function isFunctionWord(word) {
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, '');
-  return FUNCTION_WORDS.has(cleanWord);
+  
+  // Check cache first (Issue #21: memoization for performance)
+  if (functionWordCache.has(cleanWord)) {
+    return functionWordCache.get(cleanWord);
+  }
+  
+  const result = FUNCTION_WORDS.has(cleanWord);
+  
+  // Cache result (limit size to prevent memory issues)
+  if (functionWordCache.size < 10000) {
+    functionWordCache.set(cleanWord, result);
+  }
+  
+  return result;
 }
 
 /**
- * Finds the index of the first vowel in a word
+ * Finds the index of the first vowel in a word.
+ * 
+ * @param {string} word - Word to search
+ * @returns {number} Index of first vowel, or -1 if none found
+ * 
+ * @example
+ * indexOfFirstVowel("reading") // 1 (position of 'e')
+ * indexOfFirstVowel("shy")     // 2 (position of 'y' is not a vowel, so returns -1)
  */
 function indexOfFirstVowel(word) {
   const vowels = 'aeiouAEIOU';
@@ -165,7 +283,40 @@ function indexOfFirstVowel(word) {
 }
 
 /**
- * Checks if bolding at position B would split a digraph
+ * Validates if text input is suitable for bionic transformation (Issue #15).
+ * 
+ * Checks that text is non-empty, has minimum length, and contains
+ * sufficient letter content (>50% letters).
+ * 
+ * @param {string} text - Text to validate
+ * @returns {boolean} True if text is valid for transformation
+ * 
+ * @example
+ * isValidTransformInput("Hello")     // true
+ * isValidTransformInput("Hi")        // false (too short)
+ * isValidTransformInput("12345")     // false (not enough letters)
+ */
+function isValidTransformInput(text) {
+  if (!text || typeof text !== 'string') return false;
+  if (text.trim().length < 5) return false;
+  
+  // Check if text has meaningful content (>50% letters)
+  const letterCount = (text.match(/[a-zA-Z]/g) || []).length;
+  return letterCount >= text.length * 0.5;
+}
+
+/**
+ * Checks if bolding at position B would split a digraph (two-letter combination).
+ * 
+ * Digraphs like "th", "ch", "sh" should not be split to maintain readability.
+ * 
+ * @param {string} word - The word being processed
+ * @param {number} B - The proposed boundary position for bolding
+ * @returns {boolean} True if bolding would split a digraph
+ * 
+ * @example
+ * splitsDigraph("the", 2)  // true (would split "th")
+ * splitsDigraph("cat", 2)  // false (no digraph)
  */
 function splitsDigraph(word, B) {
   if (!CONFIG.ENABLE_DIGRAPH_PROTECTION || B >= word.length - 1 || B < 2) return false;
@@ -177,7 +328,20 @@ function splitsDigraph(word, B) {
 }
 
 /**
- * FIXED Core Bionic Reading Algorithm - Bold count is deterministic
+ * Calculates which letter positions should be bolded in a word using the Bionic Reading algorithm.
+ * 
+ * Algorithm:
+ * 1. Determine base ratio based on word length and type (function vs content word)
+ * 2. Scale ratio by user's intensity preference (0.0 - 1.0)
+ * 3. Apply ratio to word length to get number of letters to bold
+ * 4. Return array of letter indices to make bold
+ * 
+ * @param {string} word - The word to calculate bold positions for
+ * @returns {number[]} Array of letter indices (0-based) that should be bolded
+ * 
+ * @example
+ * calculateBionicBoldPositions("reading") // Returns [0, 1, 2] for "REAding"
+ * calculateBionicBoldPositions("the")     // Returns [0] for "The" (function word)
  */
 function calculateBionicBoldPositions(word) {
   const letters = word.match(/[a-zA-Z]/g);
@@ -187,12 +351,25 @@ function calculateBionicBoldPositions(word) {
   const letterString = letters.join('');
   const isFunction = isFunctionWord(word);
   
-  // Base ratio depends on small/long words and function/content words.
-  const baseRatio = N <= 3 ? 0.66 : (isFunction ? CONFIG.FUNCTION_WORD_RATIO : CONFIG.CONTENT_WORD_RATIO);
-  // Scale baseRatio by intensity so BIONIC_INTENSITY controls how many letters are bolded.
-  // Use a reasonable multiplier range: multiplier = 0.5 + BIONIC_INTENSITY (maps 0..1 -> 0.5..1.5)
-  const intensityMultiplier = Math.max(0, Math.min(2, 0.5 + Number(BIONIC_INTENSITY || 0.5)));
-  const scaled = Math.max(0.05, Math.min(0.95, baseRatio * intensityMultiplier));
+  // Base ratio depends on word length and type (Issue #13: extracted magic numbers to CONFIG)
+  const baseRatio = N <= CONFIG.SMALL_WORD_THRESHOLD 
+    ? CONFIG.SMALL_WORD_RATIO 
+    : (isFunction ? CONFIG.FUNCTION_WORD_RATIO : CONFIG.CONTENT_WORD_RATIO);
+  
+  // Scale by intensity: multiplier ranges from 0.5 to 1.5 (default 1.0 at intensity=0.5)
+  const intensityMultiplier = Math.max(
+    0, 
+    Math.min(
+      CONFIG.INTENSITY_MAX_MULTIPLIER,
+      CONFIG.INTENSITY_BASE_MULTIPLIER + Number(bionicIntensity || 0.5) * CONFIG.INTENSITY_RANGE
+    )
+  );
+  
+  const scaled = Math.max(
+    CONFIG.MIN_BOLD_RATIO,
+    Math.min(CONFIG.MAX_BOLD_RATIO, baseRatio * intensityMultiplier)
+  );
+  
   const B = Math.min(N - 1, Math.max(1, Math.ceil(N * scaled)));
   
   const positions = [];
@@ -204,7 +381,19 @@ function calculateBionicBoldPositions(word) {
   return positions;
 }
 
+/**
+ * Determines if a word should be processed for bionic transformation.
+ * 
+ * Filters out invalid text, short words, and already-processed words.
+ * 
+ * @param {string} word - Word to check
+ * @param {number} index - Position of word in sentence (unused but kept for compatibility)
+ * @param {string[]} words - Array of all words (unused but kept for compatibility)
+ * @returns {boolean} True if word should be transformed
+ */
 function shouldProcessWord(word, index, words) {
+  // Use centralized validation (Issue #15: DRY principle)
+  if (!isValidTransformInput(word)) return false;
   if (!word || word.length <= 1) return false;
   
   const letters = word.match(/[a-zA-Z]/g);
@@ -216,6 +405,14 @@ function shouldProcessWord(word, index, words) {
   return true;
 }
 
+/**
+ * Wrapper function for transforming a single word with error handling.
+ * 
+ * @param {string} word - Word to transform
+ * @param {number} index - Position in word array
+ * @param {string[]} words - Array of all words
+ * @returns {string} Transformed HTML or original word if processing fails
+ */
 function transformWord(word, index, words) {
   // Skip processing if word shouldn't be processed
   if (!shouldProcessWord(word, index, words)) return word;
@@ -230,40 +427,54 @@ function transformWord(word, index, words) {
   return transformSingleWord(word, index, words);
 }
 
+/**
+ * Transforms a single word into bionic reading format by bolding specific letters.
+ * 
+ * Uses single-pass algorithm for performance (Issue #14).
+ * Preserves non-letter characters (punctuation, numbers) in their original positions.
+ * 
+ * @param {string} word - Word to transform
+ * @param {number} index - Position in word array (unused)
+ * @param {string[]} words - Array of all words (unused)
+ * @returns {string} HTML string with <span> tags for bolded letters
+ * 
+ * @example
+ * transformSingleWord("reading") // Returns "REAding" with bold HTML
+ */
 function transformSingleWord(word, index, words) {
   debugLog(`[TRANSFORM] Starting with word: "${word}"`);
   
-  const letterPositions = [];
-  const letters = [];
-  
+  // Build letter info array in single pass (Issue #14: optimized for performance)
+  const letterInfo = [];
   for (let i = 0; i < word.length; i++) {
     if (/[a-zA-Z]/.test(word[i])) {
-      letterPositions.push(i);
-      letters.push(word[i]);
+      letterInfo.push({ charIndex: i, letterIndex: letterInfo.length });
     }
   }
   
-  if (letters.length < 2) return word;
+  if (letterInfo.length < 2) return word;
   
-  const boldPositions = calculateBionicBoldPositions(word);
-  if (boldPositions.length === 0) return word;
-  
-  let result = '';
+  const boldPositions = new Set(calculateBionicBoldPositions(word));
+  if (boldPositions.size === 0) return word;
   
   // Map intensity [0,1] to font-weight range [300,900] for more visible difference
-  const weight = Math.round(300 + (BIONIC_INTENSITY * 600));
+  const weight = Math.round(300 + (bionicIntensity * 600));
   
-  // Build result by wrapping bold letters individually with dynamic weight
+  // Build result in single pass (Issue #14: optimized array building)
+  let result = '';
   for (let i = 0; i < word.length; i++) {
-    if (/[a-zA-Z]/.test(word[i])) {
-      const letterIndex = letterPositions.indexOf(i);
-      if (boldPositions.includes(letterIndex)) {
-        result += `<span class="bionic-fixation" style="font-weight:${weight}">${word[i]}</span>`;
+    const char = word[i];
+    
+    if (/[a-zA-Z]/.test(char)) {
+      const letterIdx = letterInfo.findIndex(info => info.charIndex === i);
+      
+      if (letterIdx !== -1 && boldPositions.has(letterIdx)) {
+        result += `<span class="bionic-fixation" style="font-weight:${weight}">${char}</span>`;
       } else {
-        result += word[i];
+        result += char;
       }
     } else {
-      result += word[i];
+      result += char;
     }
   }
   
@@ -271,8 +482,21 @@ function transformSingleWord(word, index, words) {
   return result;
 }
 
+/**
+ * Transforms a text string into bionic reading format.
+ * 
+ * Splits text into words, transforms each word, tracks statistics,
+ * and applies security limits.
+ * 
+ * @param {string} text - Text to transform
+ * @returns {string} Transformed HTML with bionic formatting
+ * 
+ * @example
+ * transformText("Hello world") // Returns bionic-formatted HTML
+ */
 function transformText(text) {
-  if (!text || typeof text !== 'string') return text;
+  // Use centralized validation (Issue #15: DRY principle)
+  if (!isValidTransformInput(text)) return text;
   
   // Security: Limit text length
   if (text.length > CONFIG.MAX_TEXT_LENGTH) {
@@ -453,10 +677,22 @@ async function processTextNodesBatch(textNodes, startIndex = 0, signal = null) {
   return processedCount;
 }
 
+/**
+ * Main function to process text nodes in the DOM with performance monitoring.
+ * Uses batch processing with AbortController for cancellation.
+ * 
+ * @param {HTMLElement} element - Root element to process
+ * @returns {Promise<void>}
+ */
 async function processTextNodes(element) {
   if (!element || shouldSkipElement(element) || isProcessing) return;
   
   isProcessing = true;
+  
+  // Performance monitoring (Issue #28)
+  if (CONFIG.ENABLE_PERFORMANCE_MONITORING) {
+    performance.mark('bionic-process-start');
+  }
   
   // Create abort controller for this processing session
   processingAbortController = new AbortController();
@@ -515,6 +751,26 @@ async function processTextNodes(element) {
   } finally {
     isProcessing = false;
     processingAbortController = null;
+    
+    // Performance monitoring (Issue #28)
+    if (CONFIG.ENABLE_PERFORMANCE_MONITORING) {
+      performance.mark('bionic-process-end');
+      performance.measure(
+        'bionic-processing',
+        'bionic-process-start',
+        'bionic-process-end'
+      );
+      
+      const measure = performance.getEntriesByName('bionic-processing')[0];
+      if (measure && measure.duration > CONFIG.PERFORMANCE_LOG_THRESHOLD) {
+        console.log(`[Performance] Processing took ${measure.duration.toFixed(2)}ms`);
+      }
+      
+      // Clear marks to prevent memory leak
+      performance.clearMarks('bionic-process-start');
+      performance.clearMarks('bionic-process-end');
+      performance.clearMeasures('bionic-processing');
+    }
   }
 }
 
@@ -611,6 +867,9 @@ function disableBionic() {
   
   // Stop observing dynamic content and clear timeouts
   stopObserver();
+  
+  // Clear function word cache to free memory (Issue #21)
+  functionWordCache.clear();
   
   // Save final session stats
   saveStatsToStorage();
@@ -724,13 +983,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({
         success: true,
         sessionStats: sessionStats,
-        statsEnabled: STATS_TRACKING_ENABLED
+        statsEnabled: statsTrackingEnabled
       });
       break;
       
     case 'setstatsenabled':
       const enabled = Boolean(request.statsEnabled);
-      STATS_TRACKING_ENABLED = enabled;
+      statsTrackingEnabled = enabled;
       debugLog(`[STATS] Statistics tracking ${enabled ? 'enabled' : 'disabled'}`);
       
       // If disabling, save current session stats before clearing
@@ -738,7 +997,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         saveStatsToStorage();
       }
       
-      sendResponse({ success: true, statsEnabled: STATS_TRACKING_ENABLED });
+      sendResponse({ success: true, statsEnabled: statsTrackingEnabled });
       break;
       
     case 'setintensity':
@@ -747,8 +1006,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       
       // Validate intensity parameter
       if (!isNaN(v) && v >= 0 && v <= 1) {
-        BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
-        console.log('[BIONIC] Intensity set to', BIONIC_INTENSITY);
+        bionicIntensity = Math.max(0, Math.min(1, v));
+        console.log('[BIONIC] Intensity set to', bionicIntensity);
       } else {
         console.warn('[Security] Invalid intensity value:', request.intensity);
         sendResponse({ error: 'Invalid intensity value', code: 'INVALID_PARAM' });
@@ -757,8 +1016,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       
       // Validate coverage parameter separately
       if (!isNaN(c) && c >= 0 && c <= 1) {
-        BIONIC_COVERAGE = Math.max(0, Math.min(1, c));
-        console.log('[BIONIC] Coverage (weight) set to', BIONIC_COVERAGE);
+        bionicCoverage = Math.max(0, Math.min(1, c));
+        console.log('[BIONIC] Coverage (weight) set to', bionicCoverage);
       } else if (request.coverage !== undefined) {
         console.warn('[Security] Invalid coverage value:', request.coverage);
         sendResponse({ error: 'Invalid coverage value', code: 'INVALID_PARAM' });
@@ -766,7 +1025,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
 
       // Compute font-weight using coverage
-      const weight = Math.round(200 + (BIONIC_COVERAGE * 800));
+      const weight = Math.round(200 + (bionicCoverage * 800));
       const wrappers = document.querySelectorAll('.bionic-wrapper');
       
       wrappers.forEach(wrapper => {
@@ -789,7 +1048,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
       });
 
-      sendResponse({ success: true, intensity: BIONIC_INTENSITY, coverage: BIONIC_COVERAGE });
+      sendResponse({ success: true, intensity: bionicIntensity, coverage: bionicCoverage });
       return true;
       
     default:
@@ -811,16 +1070,16 @@ if (chrome && chrome.storage && chrome.storage.sync) {
     const stats = Boolean(items.statsTrackingEnabled);
     
     if (!isNaN(v)) {
-      BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
-      console.log('[BIONIC] Loaded intensity from storage:', BIONIC_INTENSITY);
+      bionicIntensity = Math.max(0, Math.min(1, v));
+      console.log('[BIONIC] Loaded intensity from storage:', bionicIntensity);
     }
     if (!isNaN(c)) {
-      BIONIC_COVERAGE = Math.max(0, Math.min(1, c));
-      console.log('[BIONIC] Loaded coverage from storage:', BIONIC_COVERAGE);
+      bionicCoverage = Math.max(0, Math.min(1, c));
+      console.log('[BIONIC] Loaded coverage from storage:', bionicCoverage);
     }
     
-    STATS_TRACKING_ENABLED = stats;
-    console.log('[STATS] Loaded statistics preference from storage:', STATS_TRACKING_ENABLED);
+    statsTrackingEnabled = stats;
+    console.log('[STATS] Loaded statistics preference from storage:', statsTrackingEnabled);
   });
 }
 
@@ -850,7 +1109,12 @@ function startObserver() {
     
     if (hasNewText && newNodes.length > 0) {
       clearTimeout(mutationObserver.timeout);
-      const delay = Math.min(1500, Math.max(300, newNodes.length * 30));
+      
+      // Calculate adaptive delay based on number of nodes (Issue #17: extracted to CONFIG)
+      const delay = Math.min(
+        CONFIG.OBSERVER_MAX_DELAY,
+        Math.max(CONFIG.OBSERVER_MIN_DELAY, newNodes.length * CONFIG.OBSERVER_DELAY_PER_NODE)
+      );
       
       mutationObserver.timeout = setTimeout(async () => {
         if (processedCount >= CONFIG.MAX_TOTAL_NODES) return;

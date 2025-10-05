@@ -1,9 +1,16 @@
-// Bionic Reader - Secure Background Service Worker
-// Enterprise-grade security implementation
+/**
+ * Bionic Reader Background Service Worker
+ * 
+ * Handles secure message passing, rate limiting, and origin validation
+ * for the Bionic Reader extension.
+ * 
+ * @version 1.0.0
+ * @license MIT
+ */
 
 'use strict';
 
-// Error codes centralization
+// Error codes centralization (Issue #10)
 const ERROR_CODES = {
   INVALID_SENDER: 'INVALID_SENDER',
   ORIGIN_BLOCKED: 'ORIGIN_BLOCKED',
@@ -40,12 +47,40 @@ const SECURITY_CONFIG = {
   ]
 };
 
+/**
+ * @typedef {Object} BionicMessage
+ * @property {string} action - Action to perform (toggle, setintensity, getstats, etc.)
+ * @property {number} [intensity] - Intensity value (0.0-1.0) for setintensity action
+ * @property {number} [coverage] - Coverage value (0.0-1.0) for setintensity action
+ * @property {boolean} [statsEnabled] - Stats enabled flag for setstatsenabled action
+ */
+
+/**
+ * @typedef {Object} MessageResponse
+ * @property {boolean} [success] - Whether the operation was successful
+ * @property {string} [error] - Error message if operation failed
+ * @property {string} [code] - Error code from ERROR_CODES
+ * @property {boolean} [enabled] - Current enabled state
+ * @property {number} [intensity] - Current intensity value
+ * @property {number} [coverage] - Current coverage value
+ * @property {Object} [sessionStats] - Session statistics
+ * @property {boolean} [statsEnabled] - Whether stats tracking is enabled
+ * @property {number} [processedNodes] - Number of nodes processed
+ */
 
 // Rate limiting storage
 const rateLimitMap = new Map();
 
-// Security validator class
+/**
+ * Security validator class providing origin, rate limit, and message validation.
+ */
 class SecurityValidator {
+  /**
+   * Validates if an origin is allowed for content script injection.
+   * 
+   * @param {string} origin - URL origin to validate
+   * @returns {boolean} True if origin is safe
+   */
   static validateOrigin(origin) {
     if (!origin) return false;
     
@@ -83,6 +118,12 @@ class SecurityValidator {
     return { valid: true };
   }
   
+  /**
+   * Checks if a tab has exceeded the rate limit.
+   * 
+   * @param {number} tabId - Tab ID to check rate limit for
+   * @returns {boolean} True if within rate limit
+   */
   static checkRateLimit(tabId) {
     const now = Date.now();
     const key = `tab_${tabId}`;

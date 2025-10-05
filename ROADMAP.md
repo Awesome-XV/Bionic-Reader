@@ -1,18 +1,5 @@
 ### Short-term (0-7 days) - Quick
 
-# 1 Reading statistics and feedback
-Why: Track usage metrics and provide feedback on reading enhancement activity.
-Files: content.js, popup.js, background.js
-Tasks:
-    Track words processed, time spent reading, sessions per day.
-    Add simple stats display in popup (words enhanced today, total saved time estimate).
-    Store stats in chrome.storage.local with daily/weekly aggregation.
-Tests:
-    Unit tests: stats calculation and storage logic.
-    Manual: use extension, verify stats increment and persist correctly.
-Success: popup shows "Enhanced 1,247 words today" with reading time saved estimate
-ETA: 3–4 days
-
 # 2 Options page for advanced settings
 Why: Provide dedicated interface for advanced configuration separate from popup.
 Files: options.html, options.js, manifest.json

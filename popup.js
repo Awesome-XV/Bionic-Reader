@@ -1,6 +1,15 @@
 'use strict';
 
-// Debounce utility function
+/**
+ * Debounce utility function to limit function execution frequency.
+ * 
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Milliseconds to wait before executing
+ * @returns {Function} Debounced function
+ * 
+ * @example
+ * const debouncedUpdate = debounce(updateUI, 250);
+ */
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
@@ -16,7 +25,14 @@ function debounce(func, wait) {
 // Demo text used in popup preview
 const DEMO_SAMPLE = 'Reading this demo text normally.';
 
-// Return HTML string with simple bionic-style bolding based on intensity
+/**
+ * Generates bionic-formatted HTML for demo text based on intensity.
+ * 
+ * @param {string} text - Text to transform
+ * @param {number} intensity - Bold intensity (0.0 to 1.0)
+ * @param {number} [coverage] - Visual weight/font-weight (0.0 to 1.0, optional)
+ * @returns {string} HTML string with bionic formatting
+ */
 function updateDemoHTML(text, intensity = 0.5, coverage = undefined) {
   if (!text) return '';
   const parts = text.split(/(\s+)/);
@@ -124,10 +140,55 @@ if (typeof module !== 'undefined' && module.exports) {
 
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('DOMContentLoaded', () => {
-  const toggleSwitch = document.getElementById('toggleSwitch');
-  const onText = document.getElementById('onText');
-  const offText = document.getElementById('offText');
-  const status = document.getElementById('status');
+  
+  // Cache all DOM elements (Issue #22: performance optimization)
+  const elements = {
+    toggleSwitch: document.getElementById('toggleSwitch'),
+    onText: document.getElementById('onText'),
+    offText: document.getElementById('offText'),
+    status: document.getElementById('status'),
+    intensity: document.getElementById('intensity'),
+    intensityValue: document.getElementById('intensityValue'),
+    coverage: document.getElementById('coverage'),
+    coverageValue: document.getElementById('coverageValue'),
+    demoBionic: document.querySelector('.demo-bionic'),
+    demoNormal: document.querySelector('.demo-normal'),
+    statsEnabled: document.getElementById('statsEnabled'),
+    statsContent: document.getElementById('statsContent'),
+    statsDisabled: document.getElementById('statsDisabled'),
+    wordsToday: document.getElementById('wordsToday'),
+    timeToday: document.getElementById('timeToday'),
+    timeSaved: document.getElementById('timeSaved'),
+    resetBtn: document.getElementById('resetBtn'),
+    helpLink: document.getElementById('helpLink')
+  };
+  
+  // Destructure for backward compatibility (Issue #22: maintain existing code)
+  const {
+    toggleSwitch, onText, offText, status, intensity, intensityValue,
+    coverage, coverageValue, demoBionic, demoNormal, statsEnabled,
+    statsContent, statsDisabled, wordsToday, timeToday, timeSaved,
+    resetBtn, helpLink
+  } = elements;
+
+  // Enhanced ARIA accessibility attributes (Issue #20)
+  if (toggleSwitch) {
+    toggleSwitch.setAttribute('role', 'switch');
+    toggleSwitch.setAttribute('aria-checked', 'false');
+    toggleSwitch.setAttribute('aria-label', 'Toggle Bionic Reading mode');
+    toggleSwitch.setAttribute('tabindex', '0');
+  }
+  
+  if (status) {
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.setAttribute('aria-atomic', 'true');
+  }
+  
+  if (demoBionic) {
+    demoBionic.setAttribute('role', 'region');
+    demoBionic.setAttribute('aria-label', 'Bionic reading preview');
+  }
 
   // Check if we're in a restricted context
   function isRestrictedContext(url) {
@@ -499,42 +560,46 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }
   }, 2000);
 
-  // Intensity slider wiring
-  const intensity = document.getElementById('intensity');
-  const intensityValue = document.getElementById('intensityValue');
-  const coverage = document.getElementById('coverage');
-  const coverageValue = document.getElementById('coverageValue');
-  // ARIA attributes for the range control
+  // Intensity slider wiring (elements already cached at top - Issue #22)
+  // Enhanced ARIA attributes for the range control (Issue #20)
   intensity.setAttribute('role', 'slider');
   intensity.setAttribute('aria-valuemin', '0');
   intensity.setAttribute('aria-valuemax', '1');
   intensity.setAttribute('aria-valuenow', intensity.value);
-  intensity.setAttribute('aria-label', 'Highlight intensity');
-  // Coverage slider ARIA
+  intensity.setAttribute('aria-valuetext', `${Math.round(intensity.value * 100)} percent`);
+  intensity.setAttribute('aria-label', 'Text highlight intensity percentage');
+  
+  // Coverage slider ARIA (Issue #20)
   if (coverage) {
     coverage.setAttribute('role', 'slider');
     coverage.setAttribute('aria-valuemin', '0');
     coverage.setAttribute('aria-valuemax', '1');
     coverage.setAttribute('aria-valuenow', coverage.value);
-    coverage.setAttribute('aria-label', 'Highlight coverage');
+    coverage.setAttribute('aria-valuetext', `${Math.round(coverage.value * 100)} percent`);
+    coverage.setAttribute('aria-label', 'Text highlight coverage percentage');
   }
 
   function setIntensityLabel(v) {
     const pct = Math.round(v * 100);
     intensityValue.textContent = `${pct}%`;
-  // Update ARIA current value for screen readers
-  if (intensity) intensity.setAttribute('aria-valuenow', String(v));
+    // Update ARIA current value for screen readers (Issue #20)
+    if (intensity) {
+      intensity.setAttribute('aria-valuenow', String(v));
+      intensity.setAttribute('aria-valuetext', `${pct} percent`);
+    }
   }
 
   function setCoverageLabel(v) {
     const pct = Math.round(v * 100);
     if (coverageValue) coverageValue.textContent = `${pct}%`;
-    if (coverage) coverage.setAttribute('aria-valuenow', String(v));
+    // Update ARIA for screen readers (Issue #20)
+    if (coverage) {
+      coverage.setAttribute('aria-valuenow', String(v));
+      coverage.setAttribute('aria-valuetext', `${pct} percent`);
+    }
   }
 
-  // Demo element wiring
-  const demoBionic = document.querySelector('.demo-bionic');
-  const demoNormal = document.querySelector('.demo-normal');
+  // Demo element wiring (elements already cached at top - Issue #22)
   if (demoNormal) demoNormal.textContent = 'Normal: ' + DEMO_SAMPLE;
   // Use stored coverage when rendering demo preview if available
   if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, intensity.value || 0.5, coverage ? coverage.value : 0.4);
@@ -565,8 +630,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Statistics toggle handling
-  const statsEnabled = document.getElementById('statsEnabled');
+  // Statistics toggle handling (elements already cached at top - Issue #22)
   
   // Load saved settings including statistics preference
   chrome.storage.sync.get({ 
@@ -703,8 +767,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Reset button
-  const resetBtn = document.getElementById('resetBtn');
+  // Reset button (elements already cached at top - Issue #22)
   resetBtn.addEventListener('click', () => {
     const defaultVal = 0.5;
     intensity.value = defaultVal;
@@ -718,8 +781,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     status.textContent = '✨ Reset to default intensity';
   });
 
-  // Help link (opens Terms file in a new tab if possible)
-  const helpLink = document.getElementById('helpLink');
+  // Help link (opens Terms file in a new tab if possible - elements already cached at top - Issue #22)
   helpLink.addEventListener('click', (e) => {
     e.preventDefault();
     // Try to open the local terms file if packaged; otherwise open repo README
