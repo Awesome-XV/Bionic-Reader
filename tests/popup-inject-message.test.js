@@ -2,8 +2,20 @@
 describe('popup sendMessage & injection flows', () => {
   const originalChrome = global.chrome;
   const originalRAF = global.requestAnimationFrame;
+  let consoleErrorSpy;
+  let consoleLogSpy;
+
+  beforeEach(() => {
+    // Suppress expected console errors/logs during tests
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+  });
 
   afterEach(() => {
+    // Restore console
+    if (consoleErrorSpy) consoleErrorSpy.mockRestore();
+    if (consoleLogSpy) consoleLogSpy.mockRestore();
+    
     global.chrome = originalChrome;
     global.requestAnimationFrame = originalRAF;
     jest.resetModules();
@@ -72,14 +84,15 @@ describe('popup sendMessage & injection flows', () => {
         query: (q, cb) => cb([{ id: 11, url: 'https://example.com' }]),
         sendMessage: (id, msg, opts, cb) => {
           callCount += 1;
-          if (callCount === 1) {
-            // simulate missing receiver on first attempt
+          // First few calls are verification retries after injection
+          if (callCount <= 3) {
+            // simulate missing receiver on verification attempts
             global.chrome.runtime.lastError = { message: 'Receiving end does not exist' };
             if (typeof cb === 'function') cb();
             // clear lastError as real chrome does after callback
             global.chrome.runtime.lastError = undefined;
           } else {
-            // on retry, succeed
+            // on final retry, succeed
             global.chrome.runtime.lastError = undefined;
             if (typeof cb === 'function') cb({ enabled: true });
           }
@@ -96,9 +109,14 @@ describe('popup sendMessage & injection flows', () => {
   // clear any lastError left behind by earlier mocks
   if (global.chrome && global.chrome.runtime) global.chrome.runtime.lastError = undefined;
 
-  // advance timers to let injection timeouts run (injectContentScript uses 100ms + retry waits 200ms)
-  jest.advanceTimersByTime(400);
-  // wait for microtasks
+  // advance timers incrementally to allow promises to resolve between timer advances
+  jest.advanceTimersByTime(50); // CSS wait
+  await Promise.resolve();
+  jest.advanceTimersByTime(100); // first verification retry
+  await Promise.resolve();
+  jest.advanceTimersByTime(100); // second verification retry
+  await Promise.resolve();
+  jest.advanceTimersByTime(100); // third verification retry
   await Promise.resolve();
 
     // scripting should have been called (injection attempted)

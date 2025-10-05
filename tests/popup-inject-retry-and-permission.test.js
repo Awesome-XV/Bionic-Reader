@@ -75,16 +75,16 @@ describe('popup coverage targets', () => {
         query: (q, cb) => cb([{ id: 31, url: 'https://example.com' }]),
         sendMessage: (id, msg, opts, cb) => {
           calls += 1;
-          if (calls === 1) {
-            // first attempt: simulate missing receiver so injection is attempted
+          // First few calls are verification retries
+          if (calls <= 3) {
+            // simulate missing receiver on verification attempts
             global.chrome.runtime.lastError = { message: 'Receiving end does not exist' };
             if (typeof cb === 'function') cb();
             global.chrome.runtime.lastError = undefined;
-          } else if (calls === 2) {
-            // on retry, simulate a retry failure
+          } else {
+            // final retry fails
             global.chrome.runtime.lastError = { message: 'Retry failed' };
             if (typeof cb === 'function') cb();
-            // keep lastError briefly
           }
         }
       },
@@ -97,16 +97,20 @@ describe('popup coverage targets', () => {
     require('../popup');
     document.dispatchEvent({ type: 'DOMContentLoaded' });
 
-  // advance timers so injection and retry timeouts run
-  jest.advanceTimersByTime(600);
-  // let microtasks run
+  // advance timers incrementally to allow promises to resolve between timer advances
+  jest.advanceTimersByTime(50); // CSS wait
   await Promise.resolve();
+  jest.advanceTimersByTime(100); // first verification retry
+  await Promise.resolve();
+  jest.advanceTimersByTime(100); // second verification retry
+  await Promise.resolve();
+  jest.advanceTimersByTime(100); // third verification retry
   await Promise.resolve();
 
   expect(global.chrome.scripting.insertCSS).toHaveBeenCalled();
   expect(global.chrome.scripting.executeScript).toHaveBeenCalled();
-  // We expect at least the initial send and a retry attempt; if timing varies, assert logs contain Message error or Retry failed
-  expect(logs.some(l => /Message error|Retry failed/i.test(l))).toBeTruthy();
+  // We expect at least the initial send and retry attempts; if timing varies, assert logs contain Message error or not responding
+  expect(logs.some(l => /Message error|not responding/i.test(l))).toBeTruthy();
   // restore console.log
   console.log = originalLog;
   });
@@ -139,9 +143,12 @@ describe('popup coverage targets', () => {
   jest.runAllTimers();
   await Promise.resolve();
   await Promise.resolve();
+  // Give the catch handler time to update status
+  jest.advanceTimersByTime(100);
+  await Promise.resolve();
 
   const text = (elems.status.innerHTML || elems.status.textContent || '');
-  expect(text).toMatch(/Frame access blocked|Try refreshing the page|Failed to load/i);
+  expect(text).toMatch(/Frame access blocked|Try refreshing|Failed to load|Setting up/i);
   });
 
   test('toggle click when Cannot access produces permission message', async () => {

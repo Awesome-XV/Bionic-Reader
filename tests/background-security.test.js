@@ -26,6 +26,9 @@ describe('Background Service Worker - Security & Advanced Features', () => {
         onStartup: {
           addListener: jest.fn()
         },
+        onSuspend: {
+          addListener: jest.fn()
+        },
         lastError: null
       },
       tabs: {

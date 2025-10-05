@@ -26,6 +26,9 @@ describe('Background Service Worker', () => {
         onStartup: {
           addListener: jest.fn()
         },
+        onSuspend: {
+          addListener: jest.fn()
+        },
         sendMessage: jest.fn(),
         lastError: null
       },

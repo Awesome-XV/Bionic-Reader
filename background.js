@@ -3,6 +3,23 @@
 
 'use strict';
 
+// Error codes centralization
+const ERROR_CODES = {
+  INVALID_SENDER: 'INVALID_SENDER',
+  ORIGIN_BLOCKED: 'ORIGIN_BLOCKED',
+  RATE_LIMITED: 'RATE_LIMITED',
+  INVALID_MESSAGE: 'INVALID_MESSAGE',
+  MESSAGE_TOO_LARGE: 'MESSAGE_TOO_LARGE',
+  CONTENT_SCRIPT_ERROR: 'CONTENT_SCRIPT_ERROR',
+  STATS_ERROR: 'STATS_ERROR',
+  STORAGE_ERROR: 'STORAGE_ERROR',
+  INVALID_STATS: 'INVALID_STATS',
+  UNKNOWN_ACTION: 'UNKNOWN_ACTION',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  NO_TAB: 'NO_TAB',
+  INVALID_PARAM: 'INVALID_PARAM'
+};
+
 // Security constants
 const SECURITY_CONFIG = {
   MAX_MESSAGE_SIZE: 1024 * 1024, // 1MB limit
@@ -22,6 +39,7 @@ const SECURITY_CONFIG = {
     'vbscript:'
   ]
 };
+
 
 // Rate limiting storage
 const rateLimitMap = new Map();
@@ -112,20 +130,20 @@ function handleSecureMessage(message, sender, sendResponse) {
     // Validate sender
     if (!sender?.tab?.id) {
       console.warn('[Security] Invalid sender');
-      sendResponse({ error: 'Invalid sender', code: 'INVALID_SENDER' });
+      sendResponse({ error: 'Invalid sender', code: ERROR_CODES.INVALID_SENDER });
       return false;
     }
     
     // Validate origin
     if (!SecurityValidator.validateOrigin(sender.tab.url)) {
       console.warn(`[Security] Blocked request from: ${sender.tab.url}`);
-      sendResponse({ error: 'Origin not allowed', code: 'ORIGIN_BLOCKED' });
+      sendResponse({ error: 'Origin not allowed', code: ERROR_CODES.ORIGIN_BLOCKED });
       return false;
     }
     
     // Rate limiting
     if (!SecurityValidator.checkRateLimit(sender.tab.id)) {
-      sendResponse({ error: 'Rate limit exceeded', code: 'RATE_LIMITED' });
+      sendResponse({ error: 'Rate limit exceeded', code: ERROR_CODES.RATE_LIMITED });
       return false;
     }
     
@@ -133,7 +151,7 @@ function handleSecureMessage(message, sender, sendResponse) {
     const validation = SecurityValidator.validateMessage(message);
     if (!validation.valid) {
       console.warn(`[Security] Invalid message: ${validation.error}`);
-      sendResponse({ error: validation.error, code: 'INVALID_MESSAGE' });
+      sendResponse({ error: validation.error, code: ERROR_CODES.INVALID_MESSAGE });
       return false;
     }
     
@@ -166,7 +184,7 @@ function handleSecureMessage(message, sender, sendResponse) {
               console.warn('[Security] Content script communication failed:', chrome.runtime.lastError.message);
               sendResponse({ 
                 error: 'Communication failed', 
-                code: 'CONTENT_SCRIPT_ERROR' 
+                code: ERROR_CODES.CONTENT_SCRIPT_ERROR 
               });
             } else {
               // Sanitize response based on action type
@@ -199,7 +217,7 @@ function handleSecureMessage(message, sender, sendResponse) {
           { frameId: 0 },
           (response) => {
             if (chrome.runtime.lastError) {
-              sendResponse({ error: 'Failed to get stats', code: 'STATS_ERROR' });
+              sendResponse({ error: 'Failed to get stats', code: ERROR_CODES.STATS_ERROR });
             } else {
               sendResponse(response || { sessionStats: { wordsProcessed: 0, activeTime: 0 } });
             }
@@ -224,26 +242,48 @@ function handleSecureMessage(message, sender, sendResponse) {
             
             chrome.storage.local.set({ [today]: updatedStats }, () => {
               if (chrome.runtime.lastError) {
-                sendResponse({ error: 'Failed to save stats', code: 'STORAGE_ERROR' });
+                sendResponse({ error: 'Failed to save stats', code: ERROR_CODES.STORAGE_ERROR });
               } else {
                 sendResponse({ success: true, stats: updatedStats });
               }
             });
           });
         } else {
-          sendResponse({ error: 'Invalid stats data', code: 'INVALID_STATS' });
+          sendResponse({ error: 'Invalid stats data', code: ERROR_CODES.INVALID_STATS });
         }
         return true;
         
+      case 'setintensity':
+        const intensity = Number(message.intensity) || 0.5;
+        const tabId = sender?.tab?.id;
+        if (!tabId) {
+          sendResponse({ error: 'No tab context', code: ERROR_CODES.NO_TAB });
+          return false;
+        }
+        
+        // Forward intensity to content script in this tab
+        chrome.tabs.sendMessage(tabId, { 
+          action: 'setIntensity', 
+          intensity, 
+          coverage: message.coverage 
+        }, (resp) => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ error: 'Failed to set intensity', code: ERROR_CODES.CONTENT_SCRIPT_ERROR });
+          } else {
+            sendResponse({ success: true, intensity });
+          }
+        });
+        return true;
+        
       default:
-        sendResponse({ error: 'Unknown action', code: 'UNKNOWN_ACTION' });
+        sendResponse({ error: 'Unknown action', code: ERROR_CODES.UNKNOWN_ACTION });
     }
     
   } catch (error) {
     console.error('[Security] Message handler error:', error);
     sendResponse({ 
       error: 'Internal error', 
-      code: 'INTERNAL_ERROR' 
+      code: ERROR_CODES.INTERNAL_ERROR 
     });
   }
   
@@ -299,19 +339,35 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 // Clean up rate limiting data periodically
-const rateLimitCleanupInterval = setInterval(() => {
-  const now = Date.now();
-  for (const [key, data] of rateLimitMap.entries()) {
-    if (now - data.windowStart > SECURITY_CONFIG.RATE_LIMIT_WINDOW) {
-      rateLimitMap.delete(key);
+let rateLimitCleanupInterval = null;
+
+function startRateLimitCleanup() {
+  if (rateLimitCleanupInterval) return; // Already running
+  
+  rateLimitCleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [key, data] of rateLimitMap.entries()) {
+      if (now - data.windowStart > SECURITY_CONFIG.RATE_LIMIT_WINDOW) {
+        rateLimitMap.delete(key);
+      }
     }
+  }, SECURITY_CONFIG.RATE_LIMIT_WINDOW);
+}
+
+function stopRateLimitCleanup() {
+  if (rateLimitCleanupInterval) {
+    clearInterval(rateLimitCleanupInterval);
+    rateLimitCleanupInterval = null;
   }
-}, SECURITY_CONFIG.RATE_LIMIT_WINDOW);
+}
 
 // Export cleanup function for tests
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports.clearRateLimitInterval = () => clearInterval(rateLimitCleanupInterval);
+  module.exports.clearRateLimitInterval = stopRateLimitCleanup;
 }
+
+// Start cleanup immediately
+startRateLimitCleanup();
 
 // Secure message listener
 chrome.runtime.onMessage.addListener(handleSecureMessage);
@@ -326,10 +382,19 @@ chrome.runtime.onConnectExternal.addListener((port) => {
 chrome.runtime.onStartup.addListener(() => {
   console.log('[Security] Extension startup - security systems active');
   
+  // Start rate limit cleanup
+  startRateLimitCleanup();
+  
   // Verify manifest permissions
   const manifest = chrome.runtime.getManifest();
   console.log('[Security] Active permissions:', manifest.permissions);
   console.log('[Security] Host permissions:', manifest.host_permissions);
+});
+
+// Service worker lifecycle - cleanup on suspend
+chrome.runtime.onSuspend.addListener(() => {
+  console.log('[Security] Service worker suspending - cleaning up resources');
+  stopRateLimitCleanup();
 });
 
 console.log('[Security] Background service worker initialized with enterprise security');
@@ -354,26 +419,5 @@ chrome.commands.onCommand.addListener((command) => {
         }
       });
     });
-  }
-});
-
-// Accept messages for updating per-tab intensity (optional)
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message && message.action === 'setIntensity') {
-    const intensity = Number(message.intensity) || 0.5;
-    const tabId = sender?.tab?.id;
-    if (!tabId) {
-      sendResponse({ error: 'No tab context' });
-      return false;
-    }
-    // Forward intensity to content script in this tab
-    chrome.tabs.sendMessage(tabId, { action: 'setIntensity', intensity }, (resp) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ error: 'Failed to set intensity' });
-      } else {
-        sendResponse({ success: true, intensity });
-      }
-    });
-    return true; // async
   }
 });

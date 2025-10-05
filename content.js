@@ -1,6 +1,16 @@
 // Bionic Reading Extension - COMPLETELY FIXED Implementation
 'use strict';
 
+// Debug mode flag - set to true only for development
+const DEBUG_MODE = false;
+
+// Debug logging utility
+function debugLog(...args) {
+  if (DEBUG_MODE) {
+    console.log(...args);
+  }
+}
+
 // Configuration based on official Bionic Reading research
 const CONFIG = {
   MAX_NODES_PER_BATCH: 100,
@@ -30,6 +40,7 @@ let originalTexts = new WeakMap();
 let processedNodes = new Set();
 let isProcessing = false;
 let processedCount = 0;
+let processingAbortController = null;
 
 // Statistics tracking
 let sessionStats = {
@@ -63,7 +74,7 @@ function trackWordsProcessed(text) {
   }
   sessionStats.lastActiveTime = now;
   
-  console.log(`[STATS] Processed ${wordCount} words. Session total: ${sessionStats.wordsProcessed} words`);
+  debugLog(`[STATS] Processed ${wordCount} words. Session total: ${sessionStats.wordsProcessed} words`);
   return wordCount;
 }
 
@@ -91,7 +102,7 @@ function saveStatsToStorage() {
     };
     
     chrome.storage.local.set({ [today]: updatedStats }, () => {
-      console.log(`[STATS] Saved daily stats:`, updatedStats);
+      debugLog(`[STATS] Saved daily stats:`, updatedStats);
     });
   });
 }
@@ -189,7 +200,7 @@ function calculateBionicBoldPositions(word) {
     positions.push(i);
   }
   
-  console.log(`[BIONIC] Word: "${word}" | Letters: "${letterString}" | Length: ${N} | Function: ${isFunction} | Bold positions: [${positions.join(', ')}]`);
+  debugLog(`[BIONIC] Word: "${word}" | Letters: "${letterString}" | Length: ${N} | Function: ${isFunction} | Bold positions: [${positions.join(', ')}]`);
   return positions;
 }
 
@@ -220,7 +231,7 @@ function transformWord(word, index, words) {
 }
 
 function transformSingleWord(word, index, words) {
-  console.log(`[TRANSFORM] Starting with word: "${word}"`);
+  debugLog(`[TRANSFORM] Starting with word: "${word}"`);
   
   const letterPositions = [];
   const letters = [];
@@ -256,7 +267,7 @@ function transformSingleWord(word, index, words) {
     }
   }
   
-  console.log(`[TRANSFORM] "${word}" -> "${result}"`);
+  debugLog(`[TRANSFORM] "${word}" -> "${result}"`);
   return result;
 }
 
@@ -269,21 +280,31 @@ function transformText(text) {
     text = text.substring(0, CONFIG.MAX_TEXT_LENGTH);
   }
   
-  console.log(`[TEXT] Processing text: "${text}"`);
+  debugLog(`[TEXT] Processing text: "${text}"`);
   
-  // Split text into words while preserving all whitespace and punctuation
-  const parts = text.split(/(\s+)/);
-  
-  const result = parts.map((part, index) => {
-    // Keep whitespace exactly as-is
-    if (/^\s+$/.test(part)) return part;
+  try {
+    // Split text into words while preserving all whitespace and punctuation
+    const parts = text.split(/(\s+)/);
     
-    // Transform words - each non-whitespace part is treated as a word
-    return transformWord(part, index, parts);
-  }).join('');
-  
-  console.log(`[TEXT] Result: "${result}"`);
-  return result;
+    const result = parts.map((part, index) => {
+      // Keep whitespace exactly as-is
+      if (/^\s+$/.test(part)) return part;
+      
+      // Transform words - each non-whitespace part is treated as a word
+      try {
+        return transformWord(part, index, parts);
+      } catch (wordError) {
+        console.warn('[Transform] Failed to transform word:', part, wordError);
+        return part; // Return original word on error
+      }
+    }).join('');
+    
+    debugLog(`[TEXT] Result: "${result}"`);
+    return result;
+  } catch (error) {
+    console.error('[Transform] Critical error in transformText:', error);
+    return text; // Return original text on critical error
+  }
 }
 
 function shouldSkipElement(element) {
@@ -366,7 +387,13 @@ function mergeAdjacentTextNodes(textNodes) {
   return merged;
 }
 
-async function processTextNodesBatch(textNodes, startIndex = 0) {
+async function processTextNodesBatch(textNodes, startIndex = 0, signal = null) {
+  // Check for abort signal
+  if (signal?.aborted) {
+    debugLog('[Batch] Processing aborted');
+    return processedCount;
+  }
+  
   const endIndex = Math.min(startIndex + CONFIG.MAX_NODES_PER_BATCH, textNodes.length);
   const batch = textNodes.slice(startIndex, endIndex);
   
@@ -374,25 +401,31 @@ async function processTextNodesBatch(textNodes, startIndex = 0) {
   
   const mergedGroups = mergeAdjacentTextNodes(batch);
   
-  mergedGroups.forEach(nodeGroup => {
+  for (const nodeGroup of mergedGroups) {
+    // Check abort before each group
+    if (signal?.aborted) {
+      debugLog('[Batch] Processing aborted mid-batch');
+      return processedCount;
+    }
+    
     try {
-      if (nodeGroup.some(node => processedNodes.has(node))) return;
-      if (!nodeGroup.every(node => document.contains(node))) return;
+      if (nodeGroup.some(node => processedNodes.has(node))) continue;
+      if (!nodeGroup.every(node => document.contains(node))) continue;
       
       const combinedText = nodeGroup.map(node => node.textContent).join('');
-      if (!combinedText || combinedText.trim().length < 5) return;
+      if (!combinedText || combinedText.trim().length < 5) continue;
       
       const letterCount = (combinedText.match(/[a-zA-Z]/g) || []).length;
-      if (letterCount < combinedText.length * 0.5) return;
+      if (letterCount < combinedText.length * 0.5) continue;
       
-      console.log(`[BATCH] Processing merged text: "${combinedText}"`);
+      debugLog(`[BATCH] Processing merged text: "${combinedText}"`);
       const transformedHTML = transformText(combinedText);
       
       // Track words processed for statistics
       trackWordsProcessed(combinedText);
       
       if (transformedHTML !== combinedText && transformedHTML.includes('<span class="bionic-fixation"')) {
-        console.log(`[BATCH] Transformed: "${transformedHTML}"`);
+        debugLog(`[BATCH] Transformed: "${transformedHTML}"`);
         const wrapper = createSelectableWrapper(transformedHTML, combinedText);
         
         originalTexts.set(wrapper, combinedText);
@@ -410,11 +443,11 @@ async function processTextNodesBatch(textNodes, startIndex = 0) {
     } catch (error) {
       console.error('Error processing text node group:', error);
     }
-  });
+  }
   
   if (endIndex < textNodes.length && processedCount < CONFIG.MAX_TOTAL_NODES) {
     await new Promise(resolve => setTimeout(resolve, CONFIG.BATCH_DELAY));
-    return processTextNodesBatch(textNodes, endIndex);
+    return processTextNodesBatch(textNodes, endIndex, signal);
   }
   
   return processedCount;
@@ -424,6 +457,9 @@ async function processTextNodes(element) {
   if (!element || shouldSkipElement(element) || isProcessing) return;
   
   isProcessing = true;
+  
+  // Create abort controller for this processing session
+  processingAbortController = new AbortController();
   
   try {
     const walker = document.createTreeWalker(
@@ -453,15 +489,23 @@ async function processTextNodes(element) {
     
     if (textNodes.length === 0) {
       isProcessing = false;
+      processingAbortController = null;
       return;
     }
     
     const timeoutId = setTimeout(() => {
       console.warn('[Security] Processing timeout reached, stopping');
+      if (processingAbortController) {
+        processingAbortController.abort();
+      }
       isProcessing = false;
     }, CONFIG.PROCESSING_TIMEOUT);
     
-    const processed = await processTextNodesBatch(textNodes);
+    const processed = await processTextNodesBatch(
+      textNodes, 
+      0, 
+      processingAbortController.signal
+    );
     clearTimeout(timeoutId);
     
     console.log(`Successfully processed ${processed} text nodes`);
@@ -470,6 +514,7 @@ async function processTextNodes(element) {
     console.error('Error in processTextNodes:', error);
   } finally {
     isProcessing = false;
+    processingAbortController = null;
   }
 }
 
@@ -534,6 +579,9 @@ async function enableBionic() {
   
   console.log(`Fixed Bionic Reading enabled - processed ${processedCount} nodes total`);
   
+  // Start observing for dynamic content
+  startObserver();
+  
   // Save stats when processing is complete
   saveStatsToStorage();
   
@@ -552,6 +600,17 @@ function disableBionic() {
   console.log('Disabling Bionic Reading...');
   bionicEnabled = false;
   document.body.classList.remove('bionic-reading-enabled');
+  
+  // Abort any in-progress processing
+  if (processingAbortController) {
+    processingAbortController.abort();
+    processingAbortController = null;
+  }
+  
+  isProcessing = false;
+  
+  // Stop observing dynamic content and clear timeouts
+  stopObserver();
   
   // Save final session stats
   saveStatsToStorage();
@@ -672,7 +731,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     case 'setstatsenabled':
       const enabled = Boolean(request.statsEnabled);
       STATS_TRACKING_ENABLED = enabled;
-      console.log(`[STATS] Statistics tracking ${enabled ? 'enabled' : 'disabled'}`);
+      debugLog(`[STATS] Statistics tracking ${enabled ? 'enabled' : 'disabled'}`);
       
       // If disabling, save current session stats before clearing
       if (!enabled && sessionStats.wordsProcessed > 0) {
@@ -682,35 +741,40 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true, statsEnabled: STATS_TRACKING_ENABLED });
       break;
       
-    default:
-      sendResponse({ error: 'Unknown action', code: 'UNKNOWN_ACTION' });
-  }
-  
-  return false;
-});
-
-// Handle runtime intensity/coverage changes
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request && (request.action === 'setIntensity' || request.action === 'setintensity')) {
-    const v = Number(request.intensity);
-    const c = Number(request.coverage);
-    if (!isNaN(v)) {
-      BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
-      console.log('[BIONIC] Intensity set to', BIONIC_INTENSITY);
-      // If coverage provided, update it (coverage controls visual weight)
-      if (!isNaN(c)) {
+    case 'setintensity':
+      const v = Number(request.intensity);
+      const c = Number(request.coverage);
+      
+      // Validate intensity parameter
+      if (!isNaN(v) && v >= 0 && v <= 1) {
+        BIONIC_INTENSITY = Math.max(0, Math.min(1, v));
+        console.log('[BIONIC] Intensity set to', BIONIC_INTENSITY);
+      } else {
+        console.warn('[Security] Invalid intensity value:', request.intensity);
+        sendResponse({ error: 'Invalid intensity value', code: 'INVALID_PARAM' });
+        return true;
+      }
+      
+      // Validate coverage parameter separately
+      if (!isNaN(c) && c >= 0 && c <= 1) {
         BIONIC_COVERAGE = Math.max(0, Math.min(1, c));
         console.log('[BIONIC] Coverage (weight) set to', BIONIC_COVERAGE);
+      } else if (request.coverage !== undefined) {
+        console.warn('[Security] Invalid coverage value:', request.coverage);
+        sendResponse({ error: 'Invalid coverage value', code: 'INVALID_PARAM' });
+        return true;
       }
 
       // Compute font-weight using coverage
       const weight = Math.round(200 + (BIONIC_COVERAGE * 800));
       const wrappers = document.querySelectorAll('.bionic-wrapper');
+      
       wrappers.forEach(wrapper => {
         try {
           const original = originalTexts.get(wrapper) || wrapper.textContent || '';
           // Re-transform using the new intensity while preserving original text
           const transformed = transformText(original);
+          
           // Replace innerHTML only if transformation produced bionic spans
           if (transformed && transformed !== original && transformed.includes('bionic-fixation')) {
             wrapper.innerHTML = transformed;
@@ -726,11 +790,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
 
       sendResponse({ success: true, intensity: BIONIC_INTENSITY, coverage: BIONIC_COVERAGE });
-    } else {
-      sendResponse({ error: 'Invalid intensity' });
-    }
-    return true;
+      return true;
+      
+    default:
+      sendResponse({ error: 'Unknown action', code: 'UNKNOWN_ACTION' });
   }
+  
+  return false;
 });
 
 // Load saved settings from storage if available
@@ -758,62 +824,73 @@ if (chrome && chrome.storage && chrome.storage.sync) {
   });
 }
 
-// Dynamic content observer
-const observer = new MutationObserver((mutations) => {
-  if (!bionicEnabled || isProcessing) return;
+// Dynamic content observer - refactored for proper lifecycle management
+let mutationObserver = null;
+
+function startObserver() {
+  if (mutationObserver) return; // Already observing
   
-  let hasNewText = false;
-  let newNodes = [];
-  
-  mutations.forEach((mutation) => {
-    mutation.addedNodes.forEach((node) => {
-      if (node.nodeType === Node.TEXT_NODE || 
-          (node.nodeType === Node.ELEMENT_NODE && 
-           !node.classList.contains('bionic-wrapper') &&
-           !node.classList.contains('bionic-notification'))) {
-        hasNewText = true;
-        newNodes.push(node);
-      }
-    });
-  });
-  
-  if (hasNewText && newNodes.length > 0) {
-    clearTimeout(observer.timeout);
-    const delay = Math.min(1500, Math.max(300, newNodes.length * 30));
+  mutationObserver = new MutationObserver((mutations) => {
+    if (!bionicEnabled || isProcessing) return;
     
-    observer.timeout = setTimeout(async () => {
-      if (processedCount >= CONFIG.MAX_TOTAL_NODES) return;
+    let hasNewText = false;
+    let newNodes = [];
+    
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE || 
+            (node.nodeType === Node.ELEMENT_NODE && 
+             !node.classList.contains('bionic-wrapper') &&
+             !node.classList.contains('bionic-notification'))) {
+          hasNewText = true;
+          newNodes.push(node);
+        }
+      });
+    });
+    
+    if (hasNewText && newNodes.length > 0) {
+      clearTimeout(mutationObserver.timeout);
+      const delay = Math.min(1500, Math.max(300, newNodes.length * 30));
       
-      console.log(`Processing ${newNodes.length} new nodes from dynamic content`);
-      
-      for (const node of newNodes) {
-        if (node.nodeType === Node.ELEMENT_NODE && 
-            !node.classList.contains('bionic-wrapper') &&
-            processedCount < CONFIG.MAX_TOTAL_NODES) {
-          
-          const textContent = node.textContent || '';
-          if (textContent.trim().length > 30) {
-            await processTextNodes(node);
+      mutationObserver.timeout = setTimeout(async () => {
+        if (processedCount >= CONFIG.MAX_TOTAL_NODES) return;
+        
+        console.log(`Processing ${newNodes.length} new nodes from dynamic content`);
+        
+        for (const node of newNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE && 
+              !node.classList.contains('bionic-wrapper') &&
+              processedCount < CONFIG.MAX_TOTAL_NODES) {
+            
+            const textContent = node.textContent || '';
+            if (textContent.trim().length > 30) {
+              await processTextNodes(node);
+            }
           }
         }
-      }
-    }, delay);
-  }
-});
-
-// Start observing
-if (document.body) {
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
+      }, delay);
+    }
   });
-} else {
-  document.addEventListener('DOMContentLoaded', () => {
-    observer.observe(document.body, {
+  
+  if (document.body) {
+    mutationObserver.observe(document.body, {
       childList: true,
       subtree: true
     });
-  });
+  }
 }
+
+function stopObserver() {
+  if (mutationObserver) {
+    mutationObserver.disconnect();
+    if (mutationObserver.timeout) {
+      clearTimeout(mutationObserver.timeout);
+    }
+    mutationObserver = null;
+  }
+}
+
+// Don't start observer until bionic mode enabled
+// Observer will be started by enableBionic() function
 
 console.log('FULLY FIXED Bionic Reader content script loaded and ready');

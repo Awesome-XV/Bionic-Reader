@@ -1,5 +1,18 @@
 'use strict';
 
+// Debounce utility function
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 // Demo text used in popup preview
 const DEMO_SAMPLE = 'Reading this demo text normally.';
 
@@ -198,23 +211,48 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }
   }
 
-  // Enhanced content script injection with fallbacks
+  // Enhanced content script injection with synchronization and verification
   function injectContentScript(tabId, callback) {
     status.textContent = '🔄 Setting up Bionic Reader...';
     
-    // First try to inject the CSS
+    // Step 1: Inject CSS
     chrome.scripting.insertCSS({
       target: { tabId: tabId, allFrames: true },
       files: ['bionic.css']
     }).then(() => {
-      // Then inject the JavaScript
+      // Step 2: Wait for CSS to be applied (prevents FOUC)
+      return new Promise(resolve => setTimeout(resolve, 50));
+    }).then(() => {
+      // Step 3: Inject JavaScript
       return chrome.scripting.executeScript({
         target: { tabId: tabId, allFrames: true },
         files: ['content.js']
       });
     }).then(() => {
-      // Give it a moment to initialize
-      setTimeout(() => callback(true), 100);
+      // Step 4: Verify content script is ready
+      return new Promise((resolve, reject) => {
+        const maxRetries = 3;
+        let retries = 0;
+        
+        function checkReady() {
+          chrome.tabs.sendMessage(tabId, { action: 'getStatus' }, (response) => {
+            if (chrome.runtime.lastError) {
+              if (retries < maxRetries) {
+                retries++;
+                setTimeout(checkReady, 100);
+              } else {
+                reject(new Error('Content script not responding'));
+              }
+            } else {
+              resolve();
+            }
+          });
+        }
+        
+        checkReady();
+      });
+    }).then(() => {
+      callback(true);
     }).catch((error) => {
       console.error('Injection failed:', error);
       
@@ -224,6 +262,9 @@ if (typeof document !== 'undefined' && document.addEventListener) {
         status.style.background = 'rgba(244,67,54,0.2)';
       } else if (error.message.includes('frame')) {
         status.innerHTML = '🖼️ Frame access blocked<br><small>Try refreshing the page</small>';
+        status.style.background = 'rgba(255,193,7,0.2)';
+      } else if (error.message.includes('not responding')) {
+        status.textContent = '⏱️ Timeout. Try refreshing the page.';
         status.style.background = 'rgba(255,193,7,0.2)';
       } else {
         status.textContent = '❌ Failed to load. Try refreshing the page.';
@@ -592,12 +633,42 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }, 30000);
   }
 
+  // Intensity slider with immediate visual feedback but debounced network calls
+  let demoUpdatePending = false;
+
   intensity.addEventListener('input', (e) => {
     const v = Number(e.target.value);
     setIntensityLabel(v);
-  // Live preview while sliding
-  // Throttle updates to avoid jank
-  scheduleDemoUpdate(v);
+    
+    // Immediate visual feedback in demo (throttled to prevent jank)
+    if (!demoUpdatePending) {
+      demoUpdatePending = true;
+      scheduleDemoUpdate(v);
+      setTimeout(() => { demoUpdatePending = false; }, 50);
+    }
+  });
+
+  // Debounced save to storage and content script
+  const debouncedIntensitySave = debounce((value) => {
+    chrome.storage.sync.set({ bionicIntensity: value });
+    
+    safeTabAccess((tab) => {
+      if (!tab || !tab.id) return;
+      
+      sendMessageToTab(tab.id, { action: 'getStatus' }, (response) => {
+        if (response && response.enabled) {
+          chrome.tabs.sendMessage(tab.id, { 
+            action: 'setIntensity', 
+            intensity: value,
+            coverage: Number(coverage?.value || 0.4)
+          });
+        }
+      });
+    });
+  }, 300);
+
+  intensity.addEventListener('change', (e) => {
+    debouncedIntensitySave(Number(e.target.value));
   });
 
   // Coverage live preview
@@ -611,39 +682,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Updated intensity change handler (call this in place of your previous handler)
-  intensity.addEventListener('change', (e) => {
-    const v = Number(e.target.value);
-    // Persist the preference
-  chrome.storage.sync.set({ bionicIntensity: v });
-
-    // Check if extension is currently enabled before attempting injection
-    safeTabAccess((tab) => {
-      if (!tab || !tab.id) return;
-      
-      // First check if bionic reader is already active
-      sendMessageToTab(tab.id, {action: 'getStatus'}, (response, error) => {
-        if (response && response.enabled) {
-          // Already active, just update intensity
-          chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: v, coverage: Number(coverage ? coverage.value : 0.4) }, (resp) => {
-            if (chrome.runtime.lastError) {
-              console.warn('Failed to send intensity to content script:', chrome.runtime.lastError.message);
-            } else {
-              // friendly feedback
-              status.textContent = `Highlight intensity set: ${Math.round(v * 100)}%`;
-              // update demo to reflect final value
-          if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, v, coverage ? coverage.value : 0.4);
-            }
-          });
-        } else {
-          // Not active yet, just save the preference for when it's toggled on
-          status.textContent = `Intensity set: ${Math.round(v * 100)}% (activate to apply)`;
-          // update demo to reflect final value (including coverage)
-          const cVal = coverage ? Number(coverage.value) : 0.4;
-          if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTMLWithCoverage(DEMO_SAMPLE, v, cVal);
-        }
-      });
-    });
 
   // Coverage change handler
   if (coverage) {
@@ -664,7 +702,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       });
     });
   }
-  });
 
   // Reset button
   const resetBtn = document.getElementById('resetBtn');

@@ -85,18 +85,20 @@ describe('Content Script Core', () => {
     expect(mockChrome.storage.sync.get).toHaveBeenCalled();
   });
 
-  test('handles invalid setIntensity message', () => {
+  test('handles setIntensity message correctly', () => {
     require('../content.js');
     const handler = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
     const sendResponse = jest.fn();
     
-    // setIntensity is handled by second message listener, first one doesn't recognize it
-    handler({ action: 'setIntensity', intensity: 0.8 }, {}, sendResponse);
+    // setIntensity is now handled in the main listener
+    const result = handler({ action: 'setIntensity', intensity: 0.8, coverage: 0.5 }, {}, sendResponse);
     
     expect(sendResponse).toHaveBeenCalledWith({
-      error: 'Unknown action',
-      code: 'UNKNOWN_ACTION'
+      success: true,
+      intensity: 0.8,
+      coverage: 0.5
     });
+    expect(result).toBe(true); // Should return true for async response
   });
 
   test('handles toggle message', () => {
@@ -195,9 +197,11 @@ describe('Content Script Core', () => {
     });
   });
 
-  test('creates mutation observer', () => {
+  test('creates mutation observer when bionic enabled', () => {
+    // Observer is now only created when bionic mode is enabled (not on script load)
     require('../content.js');
-    expect(global.MutationObserver).toHaveBeenCalled();
+    // Observer should not be created on load anymore
+    expect(global.MutationObserver).not.toHaveBeenCalled();
   });
 
   test('loads settings from storage', () => {
