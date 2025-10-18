@@ -644,6 +644,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     
     intensity.value = v;
     setIntensityLabel(v);
+    updateSliderProgress(v); // Update slider progress on load
     
     if (coverage) {
       coverage.value = c;
@@ -697,12 +698,22 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }, 30000);
   }
 
+  /**
+   * Updates the visual progress fill of the intensity slider
+   * @param {number} value - Slider value (0.0 to 1.0)
+   */
+  function updateSliderProgress(value) {
+    const percentage = value * 100;
+    intensity.style.setProperty('--value', `${percentage}%`);
+  }
+
   // Intensity slider with immediate visual feedback but debounced network calls
   let demoUpdatePending = false;
 
   intensity.addEventListener('input', (e) => {
     const v = Number(e.target.value);
     setIntensityLabel(v);
+    updateSliderProgress(v);
     
     // Immediate visual feedback in demo (throttled to prevent jank)
     if (!demoUpdatePending) {
@@ -732,7 +743,9 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   }, 300);
 
   intensity.addEventListener('change', (e) => {
-    debouncedIntensitySave(Number(e.target.value));
+    const v = Number(e.target.value);
+    updateSliderProgress(v);
+    debouncedIntensitySave(v);
   });
 
   // Coverage live preview
@@ -772,6 +785,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     const defaultVal = 0.5;
     intensity.value = defaultVal;
     setIntensityLabel(defaultVal);
+    updateSliderProgress(defaultVal); // Update slider progress on reset
     chrome.storage.sync.set({ bionicIntensity: defaultVal }, () => {
       // Notify content script
         safeTabAccess((tab) => {

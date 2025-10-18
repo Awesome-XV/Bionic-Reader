@@ -144,9 +144,111 @@
       margin: 4px 0;
     }
 
+    /* Custom checkbox styling for Track progress */
+    input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      border: 2px solid rgba(255,255,255,0.5);
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    
+    input[type="checkbox"]:checked {
+      background: #4CAF50;
+      border-color: #4CAF50;
+    }
+    
+    input[type="checkbox"]:checked::after {
+      content: '✓';
+      position: absolute;
+      top: -2px;
+      left: 1px;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    input[type="checkbox"]:focus {
+      outline: 2px solid rgba(255,255,255,0.4);
+      outline-offset: 2px;
+    }
+
+    /* Blue slider styling with progress fill */
+    input[type="range"] {
+      appearance: none;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.2);
+      outline: none;
+      cursor: pointer;
+      position: relative;
+    }
+    
+    /* WebKit progress fill */
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(to right, #2196F3 0%, #2196F3 var(--value, 50%), rgba(255,255,255,0.2) var(--value, 50%), rgba(255,255,255,0.2) 100%);
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #2196F3;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+      margin-top: -5px;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #1976D2;
+      transform: scale(1.1);
+    }
+    
+    /* Firefox styling */
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.2);
+      border: none;
+    }
+    
+    input[type="range"]::-moz-range-progress {
+      height: 6px;
+      border-radius: 3px;
+      background: #2196F3;
+      border: none;
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #2196F3;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+    }
+    
+    input[type="range"]::-moz-range-thumb:hover {
+      background: #1976D2;
+      transform: scale(1.1);
+    }
+
     /* Respect user's reduced motion preference */
     @media (prefers-reduced-motion: reduce) {
-      .toggle-switch, .toggle-slider, .demo, .status { transition: none !important; }
+      .toggle-switch, .toggle-slider, .demo, .status, input[type="checkbox"], input[type="range"]::-webkit-slider-thumb, input[type="range"]::-moz-range-thumb { transition: none !important; }
     }
   </style>
 </head>
