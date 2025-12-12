@@ -5,12 +5,16 @@
  */
 'use strict';
 
+// Mock importScripts for service worker
+global.importScripts = jest.fn();
+
 describe('Background Coverage', () => {
   let mockChrome;
 
   beforeEach(() => {
     jest.resetModules();
     jest.useFakeTimers();
+    global.importScripts = jest.fn();
     mockChrome = {
       runtime: {
         onMessage: { addListener: jest.fn() },
@@ -36,7 +40,13 @@ describe('Background Coverage', () => {
         onChanged: { addListener: jest.fn() }
       },
       action: { setBadgeText: jest.fn(), setBadgeBackgroundColor: jest.fn() },
-      commands: { onCommand: { addListener: jest.fn() } }
+      commands: { onCommand: { addListener: jest.fn() } },
+      contextMenus: {
+        create: jest.fn(),
+        onClicked: { addListener: jest.fn() },
+        remove: jest.fn(),
+        removeAll: jest.fn()
+      }
     };
     global.chrome = mockChrome;
     global.console = { log: jest.fn(), warn: jest.fn(), error: jest.fn() };

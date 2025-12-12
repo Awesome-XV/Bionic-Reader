@@ -5,12 +5,16 @@
 
 'use strict';
 
+// Mock importScripts for service worker
+global.importScripts = jest.fn();
+
 describe('Background Service Worker - Security & Advanced Features', () => {
   let mockChrome;
 
   beforeEach(() => {
     jest.resetModules();
     jest.useFakeTimers();
+    global.importScripts = jest.fn();
     
     mockChrome = {
       runtime: {
@@ -55,6 +59,12 @@ describe('Background Service Worker - Security & Advanced Features', () => {
         onCommand: {
           addListener: jest.fn()
         }
+      },
+      contextMenus: {
+        create: jest.fn(),
+        onClicked: { addListener: jest.fn() },
+        remove: jest.fn(),
+        removeAll: jest.fn()
       }
     };
     

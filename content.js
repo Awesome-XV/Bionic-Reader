@@ -99,6 +99,10 @@ let isProcessing = false;
 let processedCount = 0;
 let processingAbortController = null;
 
+// Per-site settings flag
+let usingSiteSpecificSettings = false;
+let currentSiteOrigin = null;
+
 // Performance: Function word lookup cache (Issue #21)
 const functionWordCache = new Map();
 
@@ -938,12 +942,75 @@ function showNotification(message, type = 'info') {
   }, 3000);
 }
 
+/**
+ * Load site-specific settings or fall back to global settings
+ */
+async function loadSiteSettings() {
+  try {
+    currentSiteOrigin = window.location.origin;
+    
+    // Request settings from background script
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getsitesettings' }, resolve);
+    });
+    
+    if (response && response.success && response.settings) {
+      const settings = response.settings;
+      
+      bionicEnabled = Boolean(settings.enabled);
+      bionicIntensity = Number(settings.intensity) || 0.5;
+      bionicCoverage = Number(settings.coverage) || 0.4;
+      usingSiteSpecificSettings = Boolean(settings.isCustomized);
+      
+      debugLog('[SiteSettings] Loaded settings:', {
+        origin: currentSiteOrigin,
+        enabled: bionicEnabled,
+        intensity: bionicIntensity,
+        coverage: bionicCoverage,
+        customized: usingSiteSpecificSettings
+      });
+      
+      // Auto-enable if site settings say to
+      if (bionicEnabled) {
+        enableBionic();
+      }
+    } else {
+      // Fallback to legacy global settings
+      chrome.storage.sync.get({
+        bionicIntensity: 0.5,
+        bionicCoverage: 0.4
+      }, (items) => {
+        bionicIntensity = Number(items.bionicIntensity) || 0.5;
+        bionicCoverage = Number(items.bionicCoverage) || 0.4;
+        debugLog('[SiteSettings] Using global fallback settings');
+      });
+    }
+  } catch (error) {
+    console.error('[SiteSettings] Error loading site settings:', error);
+  }
+}
+
 function toggleBionic() {
   console.log('Toggle called, current state:', bionicEnabled);
   if (bionicEnabled) {
     disableBionic();
   } else {
     enableBionic();
+  }
+  
+  // Save site-specific enabled state
+  if (usingSiteSpecificSettings || currentSiteOrigin) {
+    chrome.runtime.sendMessage({
+      action: 'setsitesettings',
+      enabled: bionicEnabled,
+      intensity: bionicIntensity,
+      coverage: bionicCoverage
+    }, (response) => {
+      if (response && response.success) {
+        usingSiteSpecificSettings = true;
+        debugLog('[SiteSettings] Saved enabled state for site:', bionicEnabled);
+      }
+    });
   }
 }
 
@@ -1051,6 +1118,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true, intensity: bionicIntensity, coverage: bionicCoverage });
       return true;
       
+    case 'reloadsettings':
+      // Reload settings from storage (used when site settings are cleared)
+      loadSiteSettings().then(() => {
+        if (bionicEnabled) {
+          // Reprocess with new settings
+          disableBionic();
+          enableBionic();
+        }
+        sendResponse({ success: true });
+      });
+      return true; // Keep channel open for async response
+      
     default:
       sendResponse({ error: 'Unknown action', code: 'UNKNOWN_ACTION' });
   }
@@ -1156,5 +1235,8 @@ function stopObserver() {
 
 // Don't start observer until bionic mode enabled
 // Observer will be started by enableBionic() function
+
+// Load site-specific settings on page load
+loadSiteSettings();
 
 console.log('FULLY FIXED Bionic Reader content script loaded and ready');

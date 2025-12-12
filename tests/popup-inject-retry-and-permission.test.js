@@ -16,8 +16,12 @@ describe('popup coverage targets', () => {
   function makeDomShim() {
     const makeEl = () => {
       const handlers = {};
+      const styleProps = {};
       const el = {
-        style: {},
+        style: {
+          setProperty: jest.fn((prop, val) => { styleProps[prop] = val; }),
+          getPropertyValue: jest.fn((prop) => styleProps[prop] || '')
+        },
         textContent: '',
         innerHTML: '',
         classList: { add: jest.fn(), remove: jest.fn() },

@@ -160,7 +160,10 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     timeToday: document.getElementById('timeToday'),
     timeSaved: document.getElementById('timeSaved'),
     resetBtn: document.getElementById('resetBtn'),
-    helpLink: document.getElementById('helpLink')
+    helpLink: document.getElementById('helpLink'),
+    siteSettings: document.getElementById('siteSettings'),
+    siteName: document.getElementById('siteName'),
+    clearSiteBtn: document.getElementById('clearSiteBtn')
   };
   
   // Destructure for backward compatibility (Issue #22: maintain existing code)
@@ -168,7 +171,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     toggleSwitch, onText, offText, status, intensity, intensityValue,
     coverage, coverageValue, demoBionic, demoNormal, statsEnabled,
     statsContent, statsDisabled, wordsToday, timeToday, timeSaved,
-    resetBtn, helpLink
+    resetBtn, helpLink, siteSettings, siteName, clearSiteBtn
   } = elements;
 
   // Enhanced ARIA accessibility attributes (Issue #20)
@@ -444,6 +447,9 @@ if (typeof document !== 'undefined' && document.addEventListener) {
 
   // Get current status with enhanced error handling
   safeTabAccess((tab) => {
+    // Load site-specific settings indicator
+    loadSiteSettingsUI(tab);
+    
     sendMessageToTab(tab.id, {action: 'getStatus'}, (response, error) => {
       if (error) {
         if (error.type === 'permission') {
@@ -466,6 +472,70 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       }
     });
   });
+
+  function updateUI(enabled) {
+    if (enabled) {
+      toggleSwitch.classList.add('active');
+      onText.style.opacity = '1';
+      offText.style.opacity = '0.5';
+  toggleSwitch.setAttribute('aria-checked', 'true');
+    } else {
+      toggleSwitch.classList.remove('active');
+      onText.style.opacity = '0.5';
+      offText.style.opacity = '1';
+  toggleSwitch.setAttribute('aria-checked', 'false');
+    }
+  }
+  
+  /**
+   * Load and display site-specific settings indicator
+   */
+  function loadSiteSettingsUI(tab) {
+    if (!tab || !tab.url || !siteSettings) return;
+    
+    try {
+      const url = new URL(tab.url);
+      const hostname = url.hostname;
+      
+      // Check if site has custom settings
+      chrome.runtime.sendMessage({ action: 'hascustomsettings' }, (response) => {
+        if (response && response.success && response.hasCustomSettings) {
+          // Show site settings indicator
+          if (siteSettings) siteSettings.style.display = 'block';
+          if (siteName) siteName.textContent = hostname;
+        } else {
+          // Hide site settings indicator
+          if (siteSettings) siteSettings.style.display = 'none';
+        }
+      });
+    } catch (e) {
+      console.error('Error loading site settings UI:', e);
+      if (siteSettings) siteSettings.style.display = 'none';
+    }
+  }
+  
+  // Clear site settings button handler
+  if (clearSiteBtn) {
+    clearSiteBtn.addEventListener('click', () => {
+      safeTabAccess((tab) => {
+        chrome.runtime.sendMessage({ action: 'clearsitesettings' }, (response) => {
+          if (response && response.success) {
+            // Hide the site settings indicator
+            if (siteSettings) siteSettings.style.display = 'none';
+            
+            // Notify content script to reload settings
+            chrome.tabs.sendMessage(tab.id, { action: 'reloadsettings' }, () => {
+              status.innerHTML = '✅ Reverted to global settings<br><small>Reload page to see changes</small>';
+              status.style.background = 'rgba(76,175,80,0.2)';
+            });
+          } else {
+            status.innerHTML = '❌ Failed to clear site settings';
+            status.style.background = 'rgba(244,67,54,0.2)';
+          }
+        });
+      });
+    });
+  }
 
   function updateUI(enabled) {
     if (enabled) {
@@ -707,28 +777,33 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     intensity.style.setProperty('--value', `${percentage}%`);
   }
 
-  // Intensity slider with immediate visual feedback but debounced network calls
-  let demoUpdatePending = false;
-
+  // Intensity slider - only update visuals during drag, demo when stopped
   intensity.addEventListener('input', (e) => {
     const v = Number(e.target.value);
     setIntensityLabel(v);
     updateSliderProgress(v);
-    
-    // Immediate visual feedback in demo (throttled to prevent jank)
-    if (!demoUpdatePending) {
-      demoUpdatePending = true;
-      scheduleDemoUpdate(v);
-      setTimeout(() => { demoUpdatePending = false; }, 50);
-    }
+    // No demo update during dragging - only visual feedback
   });
 
-  // Debounced save to storage and content script
+  // Debounced save to storage and content script (with per-site support)
   const debouncedIntensitySave = debounce((value) => {
+    // Save to global settings
     chrome.storage.sync.set({ bionicIntensity: value });
     
     safeTabAccess((tab) => {
       if (!tab || !tab.id) return;
+      
+      // Check if site has custom settings and save per-site
+      chrome.runtime.sendMessage({ action: 'hascustomsettings' }, (response) => {
+        if (response && response.success && response.hasCustomSettings) {
+          // Save as site-specific setting
+          chrome.runtime.sendMessage({
+            action: 'setsitesettings',
+            intensity: value,
+            coverage: Number(coverage?.value || 0.4)
+          });
+        }
+      });
       
       sendMessageToTab(tab.id, { action: 'getStatus' }, (response) => {
         if (response && response.enabled) {
@@ -745,6 +820,11 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   intensity.addEventListener('change', (e) => {
     const v = Number(e.target.value);
     updateSliderProgress(v);
+    
+    // Update demo ONLY when user stops dragging (no lag!)
+    scheduleDemoUpdate(v);
+    
+    // Save settings
     debouncedIntensitySave(v);
   });
 

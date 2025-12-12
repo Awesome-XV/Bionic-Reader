@@ -1,14 +1,17 @@
 /**
  * Bionic Reader Background Service Worker
  * 
- * Handles secure message passing, rate limiting, and origin validation
- * for the Bionic Reader extension.
+ * Handles secure message passing, rate limiting, origin validation,
+ * per-site settings management, and context menu actions.
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @license MIT
  */
 
 'use strict';
+
+// Import site settings manager
+importScripts('src/site-settings.js');
 
 // Error codes centralization (Issue #10)
 const ERROR_CODES = {
@@ -24,7 +27,8 @@ const ERROR_CODES = {
   UNKNOWN_ACTION: 'UNKNOWN_ACTION',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   NO_TAB: 'NO_TAB',
-  INVALID_PARAM: 'INVALID_PARAM'
+  INVALID_PARAM: 'INVALID_PARAM',
+  SITE_SETTINGS_ERROR: 'SITE_SETTINGS_ERROR'
 };
 
 // Security constants
@@ -266,6 +270,78 @@ function handleSecureMessage(message, sender, sendResponse) {
         );
         return true;
         
+      case 'getsitesettings':
+        // Get effective settings for current site
+        (async () => {
+          try {
+            const url = sender.tab.url;
+            const settings = await SiteSettingsManager.getEffectiveSettings(url);
+            sendResponse({ success: true, settings });
+          } catch (error) {
+            console.error('[SiteSettings] Error getting site settings:', error);
+            sendResponse({ error: 'Failed to get site settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
+          }
+        })();
+        return true;
+        
+      case 'setsitesettings':
+        // Set site-specific settings
+        (async () => {
+          try {
+            const url = sender.tab.url;
+            const { enabled, intensity, coverage } = message;
+            
+            const settingsToSave = {};
+            if (enabled !== undefined) settingsToSave.enabled = Boolean(enabled);
+            if (intensity !== undefined && !isNaN(intensity)) {
+              settingsToSave.intensity = Math.max(0, Math.min(1, Number(intensity)));
+            }
+            if (coverage !== undefined && !isNaN(coverage)) {
+              settingsToSave.coverage = Math.max(0, Math.min(1, Number(coverage)));
+            }
+            
+            const success = await SiteSettingsManager.setSiteSettings(url, settingsToSave);
+            
+            if (success) {
+              sendResponse({ success: true, settings: settingsToSave });
+            } else {
+              sendResponse({ error: 'Failed to save site settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
+            }
+          } catch (error) {
+            console.error('[SiteSettings] Error setting site settings:', error);
+            sendResponse({ error: 'Failed to save site settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
+          }
+        })();
+        return true;
+        
+      case 'clearsitesettings':
+        // Clear site-specific settings (revert to global)
+        (async () => {
+          try {
+            const url = sender.tab.url;
+            const success = await SiteSettingsManager.clearSiteSettings(url);
+            sendResponse({ success });
+          } catch (error) {
+            console.error('[SiteSettings] Error clearing site settings:', error);
+            sendResponse({ error: 'Failed to clear site settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
+          }
+        })();
+        return true;
+        
+      case 'hascustomsettings':
+        // Check if site has custom settings
+        (async () => {
+          try {
+            const url = sender.tab.url;
+            const hasCustom = await SiteSettingsManager.hasCustomSettings(url);
+            sendResponse({ success: true, hasCustomSettings: hasCustom });
+          } catch (error) {
+            console.error('[SiteSettings] Error checking custom settings:', error);
+            sendResponse({ error: 'Failed to check settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
+          }
+        })();
+        return true;
+      
       case 'savestats':
         // Handle stats aggregation (daily/weekly)
         if (message.stats && typeof message.stats === 'object') {
@@ -439,6 +515,68 @@ chrome.runtime.onSuspend.addListener(() => {
 });
 
 console.log('[Security] Background service worker initialized with enterprise security');
+
+// Context menu setup for per-site control
+chrome.runtime.onInstalled.addListener(() => {
+  // Create context menu for enabling/disabling on specific site
+  chrome.contextMenus.create({
+    id: 'bionic-toggle-site',
+    title: 'Toggle Bionic Reader for this site',
+    contexts: ['action']
+  });
+  
+  chrome.contextMenus.create({
+    id: 'bionic-clear-site-settings',
+    title: 'Reset site settings to global',
+    contexts: ['action']
+  });
+  
+  console.log('[SiteSettings] Context menus created');
+});
+
+// Context menu click handler
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (!tab || !tab.url) return;
+  
+  if (info.menuItemId === 'bionic-toggle-site') {
+    try {
+      // Get current settings and toggle enabled state
+      const currentSettings = await SiteSettingsManager.getEffectiveSettings(tab.url);
+      const newEnabled = !currentSettings.enabled;
+      
+      await SiteSettingsManager.setSiteSettings(tab.url, { 
+        enabled: newEnabled,
+        intensity: currentSettings.intensity,
+        coverage: currentSettings.coverage
+      });
+      
+      // Notify content script to apply changes
+      chrome.tabs.sendMessage(tab.id, { 
+        action: 'toggle',
+        source: 'contextmenu',
+        siteSpecific: true
+      });
+      
+      console.log('[SiteSettings] Toggled site settings to', newEnabled, 'for', tab.url);
+    } catch (error) {
+      console.error('[SiteSettings] Error toggling site settings:', error);
+    }
+  } else if (info.menuItemId === 'bionic-clear-site-settings') {
+    try {
+      await SiteSettingsManager.clearSiteSettings(tab.url);
+      
+      // Notify content script to reload global settings
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'reloadsettings',
+        source: 'contextmenu'
+      });
+      
+      console.log('[SiteSettings] Cleared site settings for', tab.url);
+    } catch (error) {
+      console.error('[SiteSettings] Error clearing site settings:', error);
+    }
+  }
+});
 
 // Handle keyboard commands from manifest
 chrome.commands.onCommand.addListener((command) => {

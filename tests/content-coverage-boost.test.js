@@ -3,6 +3,9 @@
  * Targets uncovered lines in content.js to improve test coverage
  */
 
+// Import JSDOM
+const { JSDOM } = require('jsdom');
+
 // Mock Chrome APIs
 global.chrome = {
   storage: {
@@ -24,12 +27,22 @@ global.chrome = {
 };
 
 describe('Content Script - Coverage Improvements', () => {
+  let dom;
   let document;
   
   beforeEach(() => {
     // Create fresh JSDOM environment
-    document = global.document;
+    dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+    document = dom.window.document;
+    global.document = document;
+    global.window = dom.window;
     jest.clearAllMocks();
+  });
+  
+  afterEach(() => {
+    if (dom) {
+      dom.window.close();
+    }
   });
 
   describe('Digraph Protection Edge Cases', () => {

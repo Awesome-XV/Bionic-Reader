@@ -19,8 +19,12 @@ describe('popup intensity apply', () => {
     // Minimal DOM shim so popup.js can attach listeners and query elements
     const makeEl = () => {
       const handlers = {};
+      const styleProps = {};
       const el = {
-        style: {},
+        style: {
+          setProperty: jest.fn((prop, val) => { styleProps[prop] = val; }),
+          getPropertyValue: jest.fn((prop) => styleProps[prop] || '')
+        },
         textContent: '',
         innerHTML: '',
         classList: { add: jest.fn(), remove: jest.fn() },
@@ -97,8 +101,12 @@ describe('popup intensity apply', () => {
     // Minimal DOM shim for this test
     const makeEl2 = () => {
       const handlers = {};
+      const styleProps = {};
       const el = {
-        style: {},
+        style: {
+          setProperty: jest.fn((prop, val) => { styleProps[prop] = val; }),
+          getPropertyValue: jest.fn((prop) => styleProps[prop] || '')
+        },
         textContent: '',
         innerHTML: '',
         classList: { add: jest.fn(), remove: jest.fn() },

@@ -3,6 +3,9 @@
  * Tests the secure background service worker that handles extension messaging
  */
 
+// Mock importScripts for service worker
+global.importScripts = jest.fn();
+
 describe('Background Service Worker', () => {
   let mockChrome;
   let background;
@@ -10,6 +13,9 @@ describe('Background Service Worker', () => {
   beforeEach(() => {
     // Clear any previous modules
     jest.resetModules();
+    
+    // Mock importScripts
+    global.importScripts = jest.fn();
     
     // Mock Chrome APIs
     mockChrome = {
@@ -47,6 +53,12 @@ describe('Background Service Worker', () => {
         onCommand: {
           addListener: jest.fn()
         }
+      },
+      contextMenus: {
+        create: jest.fn(),
+        onClicked: { addListener: jest.fn() },
+        remove: jest.fn(),
+        removeAll: jest.fn()
       },
       storage: {
         sync: {
