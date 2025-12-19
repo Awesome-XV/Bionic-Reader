@@ -881,6 +881,14 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     // Try to open the local terms file if packaged; otherwise open repo README
     chrome.tabs.create({ url: 'https://github.com/Awesome-XV/Bionic-Reader#privacy' });
   });
+  
+  // Options button (opens options page)
+  const optionsBtn = document.getElementById('optionsBtn');
+  if (optionsBtn) {
+    optionsBtn.addEventListener('click', () => {
+      chrome.runtime.openOptionsPage();
+    });
+  }
 });
   // Expose test-hooks when required by Node tests
   if (typeof module !== 'undefined' && module.exports) {

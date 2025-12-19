@@ -322,8 +322,15 @@
     </ul>
   </div>
 
-  <div style="margin-top:12px;display:flex;gap:8px;justify-content:space-between;align-items:center;">
-    <button id="resetBtn" style="flex:1;padding:8px;border-radius:6px;border:none;background:rgba(255,255,255,0.12);color:white;cursor:pointer;">Reset to default</button>
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button id="resetBtn" style="flex:1;min-width:120px;padding:8px;border-radius:6px;border:none;background:rgba(255,255,255,0.12);color:white;cursor:pointer;font-weight:500;">Reset to default</button>
+    <button id="optionsBtn" style="flex:1;min-width:140px;padding:8px 12px;border-radius:6px;border:none;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;" title="Advanced Settings">
+      <span style="font-size:16px;line-height:1;display:flex;align-items:center;">⚙️</span>
+      <span style="line-height:1;">Advanced</span>
+    </button>
+  </div>
+  
+  <div style="margin-top:8px;text-align:center;">
     <a id="helpLink" href="#" style="font-size:12px;opacity:0.85;text-decoration:underline;color:inherit;">Privacy & help</a>
   </div>
 

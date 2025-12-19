@@ -16,20 +16,7 @@ ETA: 2–3 days
 
 ### Mid-Term (1-3 weeks) - User polish
 
-# 1 Per-site enable + per-site intensity
-Why: Enable site-specific settings storage and automatic application per domain.
-Files: background.js, popup.js, content.js
-Tasks:
-    Store settings in chrome.storage.sync keyed by origin (e.g., settings['https://example.com'] = { enabled: true, intensity: 0.5 }).
-    Add popup display of current site state and a site-only toggle.
-    Add context-menu entry to enable/disable for site from toolbar.
-Tests:
-    Unit tests: storage read/write helpers.
-    Manual: enable on site A, disable on site B — settings persist after reload.
-Success: per-site values respected; UI indicates site-specific enabled state
-ETA: 3–5 days
-
-# 3 Context menu integration
+# 2 Context menu integration
 Why: Provide right-click menu access to toggle bionic reading without opening popup.
 Files: background.js, manifest.json
 Tasks:

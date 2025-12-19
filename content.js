@@ -549,7 +549,8 @@ function shouldSkipElement(element) {
   
   // Skip navigation and UI elements
   const skipClasses = ['nav', 'menu', 'header', 'footer', 'sidebar', 'breadcrumb', 'toolbar', 'navigation', 'pagination'];
-  const className = (element.className || '').toLowerCase();
+  // Handle both string className and DOMTokenList (SVG elements)
+  const className = (typeof element.className === 'string' ? element.className : element.className?.baseVal || '').toLowerCase();
   if (skipClasses.some(skip => className.includes(skip))) return true;
   
   // Skip by role

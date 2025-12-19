@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bionic Reader - Advanced Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>⚙️ Advanced Settings</h1>
+      <p>Configure advanced options for Bionic Reader</p>
+    </header>
+
+    <div class="content">
+      <!-- Status Alert -->
+      <div id="statusAlert" class="alert"></div>
+
+      <!-- Processing Settings -->
+      <section class="section">
+        <h2 class="section-title">Processing Settings</h2>
+        
+        <div class="form-group">
+          <label class="form-label" for="maxNodesPerBatch">Max Nodes Per Batch</label>
+          <input type="number" id="maxNodesPerBatch" class="form-input" min="10" max="500" step="10" value="100">
+          <span class="form-help">Maximum number of text nodes to process in a single batch (10-500). Lower values improve responsiveness but slower processing.</span>
+          <span id="maxNodesPerBatchError" class="error-message"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="maxTotalNodes">Max Total Nodes</label>
+          <input type="number" id="maxTotalNodes" class="form-input" min="500" max="10000" step="100" value="3000">
+          <span class="form-help">Maximum total nodes to process per session (500-10000). Prevents performance issues on very large pages.</span>
+          <span id="maxTotalNodesError" class="error-message"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="batchDelay">Batch Delay (ms)</label>
+          <input type="number" id="batchDelay" class="form-input" min="0" max="1000" step="5" value="25">
+          <span class="form-help">Delay between processing batches in milliseconds (0-1000). Higher values reduce CPU usage but slower processing.</span>
+          <span id="batchDelayError" class="error-message"></span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="processingTimeout">Processing Timeout (ms)</label>
+          <input type="number" id="processingTimeout" class="form-input" min="1000" max="30000" step="1000" value="8000">
+          <span class="form-help">Maximum time allowed for processing operations (1000-30000ms).</span>
+          <span id="processingTimeoutError" class="error-message"></span>
+        </div>
+      </section>
+
+      <!-- Custom Selectors -->
+      <section class="section">
+        <h2 class="section-title">Custom Skip Selectors</h2>
+        
+        <div class="form-group">
+          <label class="form-label" for="skipSelectors">CSS Selectors to Skip</label>
+          <textarea id="skipSelectors" class="form-textarea" placeholder="Enter CSS selectors, one per line&#10;Example:&#10;.no-bionic&#10;#header-nav&#10;.advertisement"></textarea>
+          <span class="form-help">Add CSS selectors for elements that should never be processed (one per line). Use valid CSS selector syntax.</span>
+          <span id="skipSelectorsError" class="error-message"></span>
+          <ul id="skipSelectorsValidation" class="validation-list"></ul>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Default Skip Tags</label>
+          <div class="code-block">SCRIPT, STYLE, CODE, PRE, H1, H2, H3, H4, H5, H6, NAV, HEADER, FOOTER, BUTTON, INPUT, TEXTAREA, SELECT</div>
+          <span class="form-help">These HTML tags are always skipped and cannot be modified.</span>
+        </div>
+      </section>
+
+      <!-- Debug Mode -->
+      <section class="section">
+        <h2 class="section-title">Debug & Development</h2>
+        
+        <div class="form-group">
+          <div class="form-checkbox">
+            <input type="checkbox" id="debugMode">
+            <label for="debugMode">Enable Debug Mode</label>
+          </div>
+          <span class="form-help">Enable console logging for troubleshooting. Warning: May impact performance and expose technical details.</span>
+        </div>
+
+        <div class="form-group">
+          <div class="form-checkbox">
+            <input type="checkbox" id="performanceMonitoring">
+            <label for="performanceMonitoring">Enable Performance Monitoring</label>
+          </div>
+          <span class="form-help">Track and log processing performance metrics. Automatically enabled when debug mode is active.</span>
+        </div>
+      </section>
+
+      <!-- Storage Info -->
+      <section class="section">
+        <h2 class="section-title">Storage Information</h2>
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="syncStorageUsed">-</div>
+            <div class="stat-label">Sync Storage Used (bytes)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="localStorageUsed">-</div>
+            <div class="stat-label">Local Storage Used (bytes)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="settingsCount">-</div>
+            <div class="stat-label">Settings Stored</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Import/Export -->
+      <section class="section">
+        <h2 class="section-title">Backup & Restore</h2>
+        
+        <div class="form-group">
+          <label class="form-label">Export Settings</label>
+          <div class="button-group">
+            <button id="exportSettings" class="btn btn-secondary">
+              Export All Settings
+            </button>
+            <button id="exportAdvanced" class="btn btn-secondary">
+              Export Advanced Only
+            </button>
+          </div>
+          <span class="form-help">Download your settings as a JSON file for backup or transfer.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Import Settings</label>
+          <div class="file-input-wrapper">
+            <input type="file" id="importFile" accept=".json,application/json">
+            <label for="importFile" class="file-input-label">
+              Choose File
+            </label>
+          </div>
+          <span class="form-help">Import previously exported settings. This will overwrite current settings.</span>
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <section class="section">
+        <h2 class="section-title">Actions</h2>
+        
+        <div class="button-group">
+          <button id="saveSettings" class="btn btn-primary">
+            💾 Save All Settings
+          </button>
+          <button id="resetDefaults" class="btn btn-danger">
+            🔄 Reset to Defaults
+          </button>
+          <button id="clearStorage" class="btn btn-secondary">
+            🗑️ Clear All Storage
+          </button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
