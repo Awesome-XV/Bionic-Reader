@@ -1,5 +1,19 @@
 'use strict';
 
+// Debug mode flag - set to false for production
+const DEBUG_MODE = false;
+
+/**
+ * Centralized logger utility
+ * Uses environment-aware logging (debug/info disabled in production)
+ */
+const logger = {
+  debug: DEBUG_MODE ? console.log.bind(console) : () => {},
+  info: DEBUG_MODE ? console.info.bind(console) : () => {},
+  warn: console.warn.bind(console),
+  error: console.error.bind(console)
+};
+
 /**
  * Debounce utility function to limit function execution frequency.
  * 
@@ -238,7 +252,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     try {
       chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
         if (chrome.runtime.lastError) {
-          console.error('Tab query error:', chrome.runtime.lastError);
+          logger.error('Tab query error:', chrome.runtime.lastError);
           status.textContent = '❌ Cannot access current tab';
           status.style.background = 'rgba(244,67,54,0.2)';
           return;
@@ -269,7 +283,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
         callback(tab);
       });
     } catch (error) {
-      console.error('Tab access error:', error);
+      logger.error('Tab access error:', error);
       status.textContent = '❌ Unable to access this page';
       status.style.background = 'rgba(244,67,54,0.2)';
     }
@@ -318,7 +332,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }).then(() => {
       callback(true);
     }).catch((error) => {
-      console.error('Injection failed:', error);
+      logger.error('Injection failed:', error);
       
       // Check if it's a permission issue
       if (error.message.includes('Cannot access') || error.message.includes('permission')) {
@@ -346,7 +360,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     chrome.tabs.sendMessage(tabId, message, { frameId: 0 }, (response) => {
       if (chrome.runtime.lastError) {
         const error = chrome.runtime.lastError.message;
-        console.log('Message error:', error);
+        logger.debug('Message error:', error);
         
         // Check if content script needs to be injected
         if (error.includes('Receiving end does not exist') || 
@@ -358,7 +372,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
               setTimeout(() => {
                 chrome.tabs.sendMessage(tabId, message, { frameId: 0 }, (retryResponse) => {
                   if (chrome.runtime.lastError) {
-                    console.error('Retry failed:', chrome.runtime.lastError);
+                    logger.error('Retry failed:', chrome.runtime.lastError);
                     callback(null, chrome.runtime.lastError);
                   } else {
                     callback(retryResponse, null);
@@ -509,7 +523,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
         }
       });
     } catch (e) {
-      console.error('Error loading site settings UI:', e);
+      logger.error('Error loading site settings UI:', e);
       if (siteSettings) siteSettings.style.display = 'none';
     }
   }

@@ -10,8 +10,12 @@
 
 'use strict';
 
-// Import site settings manager
+// Debug mode configuration (set to false for production)
+const DEBUG_MODE = false;
+
+// Import modules
 importScripts('src/site-settings.js');
+importScripts('src/logger.js');
 
 // Error codes centralization (Issue #10)
 const ERROR_CODES = {
@@ -91,7 +95,7 @@ class SecurityValidator {
     // Block dangerous protocols
     for (const blocked of SECURITY_CONFIG.BLOCKED_DOMAINS) {
       if (origin.toLowerCase().startsWith(blocked)) {
-        console.warn(`[Security] Blocked dangerous origin: ${origin}`);
+        logger.warn(`[Security] Blocked dangerous origin: ${origin}`);
         return false;
       }
     }
@@ -148,7 +152,7 @@ class SecurityValidator {
     
     // Check if within limits
     if (limitData.count >= SECURITY_CONFIG.RATE_LIMIT_REQUESTS) {
-      console.warn(`[Security] Rate limit exceeded for tab ${tabId}`);
+      logger.warn(`[Security] Rate limit exceeded for tab ${tabId}`);
       return false;
     }
     
@@ -174,14 +178,14 @@ function handleSecureMessage(message, sender, sendResponse) {
   try {
     // Validate sender
     if (!sender?.tab?.id) {
-      console.warn('[Security] Invalid sender');
+      logger.warn('[Security] Invalid sender');
       sendResponse({ error: 'Invalid sender', code: ERROR_CODES.INVALID_SENDER });
       return false;
     }
     
     // Validate origin
     if (!SecurityValidator.validateOrigin(sender.tab.url)) {
-      console.warn(`[Security] Blocked request from: ${sender.tab.url}`);
+      logger.warn(`[Security] Blocked request from: ${sender.tab.url}`);
       sendResponse({ error: 'Origin not allowed', code: ERROR_CODES.ORIGIN_BLOCKED });
       return false;
     }
@@ -195,7 +199,7 @@ function handleSecureMessage(message, sender, sendResponse) {
     // Validate message
     const validation = SecurityValidator.validateMessage(message);
     if (!validation.valid) {
-      console.warn(`[Security] Invalid message: ${validation.error}`);
+      logger.warn(`[Security] Invalid message: ${validation.error}`);
       sendResponse({ error: validation.error, code: ERROR_CODES.INVALID_MESSAGE });
       return false;
     }
@@ -226,7 +230,7 @@ function handleSecureMessage(message, sender, sendResponse) {
           { frameId: 0 }, // Main frame only
           (response) => {
             if (chrome.runtime.lastError) {
-              console.warn('[Security] Content script communication failed:', chrome.runtime.lastError.message);
+              logger.warn('[Security] Content script communication failed:', chrome.runtime.lastError.message);
               sendResponse({ 
                 error: 'Communication failed', 
                 code: ERROR_CODES.CONTENT_SCRIPT_ERROR 
@@ -278,7 +282,7 @@ function handleSecureMessage(message, sender, sendResponse) {
             const settings = await SiteSettingsManager.getEffectiveSettings(url);
             sendResponse({ success: true, settings });
           } catch (error) {
-            console.error('[SiteSettings] Error getting site settings:', error);
+            logger.error('[SiteSettings] Error getting site settings:', error);
             sendResponse({ error: 'Failed to get site settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
           }
         })();
@@ -308,7 +312,7 @@ function handleSecureMessage(message, sender, sendResponse) {
               sendResponse({ error: 'Failed to save site settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
             }
           } catch (error) {
-            console.error('[SiteSettings] Error setting site settings:', error);
+            logger.error('[SiteSettings] Error setting site settings:', error);
             sendResponse({ error: 'Failed to save site settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
           }
         })();
@@ -322,7 +326,7 @@ function handleSecureMessage(message, sender, sendResponse) {
             const success = await SiteSettingsManager.clearSiteSettings(url);
             sendResponse({ success });
           } catch (error) {
-            console.error('[SiteSettings] Error clearing site settings:', error);
+            logger.error('[SiteSettings] Error clearing site settings:', error);
             sendResponse({ error: 'Failed to clear site settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
           }
         })();
@@ -336,7 +340,7 @@ function handleSecureMessage(message, sender, sendResponse) {
             const hasCustom = await SiteSettingsManager.hasCustomSettings(url);
             sendResponse({ success: true, hasCustomSettings: hasCustom });
           } catch (error) {
-            console.error('[SiteSettings] Error checking custom settings:', error);
+            logger.error('[SiteSettings] Error checking custom settings:', error);
             sendResponse({ error: 'Failed to check settings', code: ERROR_CODES.SITE_SETTINGS_ERROR });
           }
         })();
@@ -397,7 +401,7 @@ function handleSecureMessage(message, sender, sendResponse) {
     }
     
   } catch (error) {
-    console.error('[Security] Message handler error:', error);
+    logger.error('[Security] Message handler error:', error);
     sendResponse({ 
       error: 'Internal error', 
       code: ERROR_CODES.INTERNAL_ERROR 
@@ -409,12 +413,12 @@ function handleSecureMessage(message, sender, sendResponse) {
 
 // Installation and update handlers
 chrome.runtime.onInstalled.addListener((details) => {
-  console.log('[Security] Extension installed/updated:', details.reason);
+  logger.debug('[Security] Extension installed/updated:', details.reason);
   
   // Clear any stored data on install for security
   if (details.reason === 'install') {
     chrome.storage.sync.clear(() => {
-      console.log('[Security] Storage cleared on fresh install');
+      logger.debug('[Security] Storage cleared on fresh install');
     });
   }
   
@@ -428,13 +432,13 @@ chrome.runtime.onInstalled.addListener((details) => {
 // Secure storage access
 chrome.storage.onChanged.addListener((changes, namespace) => {
   // Log storage changes for audit trail
-  console.log(`[Security] Storage changed in ${namespace}:`, Object.keys(changes));
+  logger.debug(`[Security] Storage changed in ${namespace}:`, Object.keys(changes));
   
   // Validate critical settings
   if (changes.bionicEnabled) {
     const newValue = changes.bionicEnabled.newValue;
     if (typeof newValue !== 'boolean') {
-      console.warn('[Security] Invalid bionicEnabled value type');
+      logger.warn('[Security] Invalid bionicEnabled value type');
       chrome.storage.sync.remove('bionicEnabled');
     }
   }
@@ -448,9 +452,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     
     // Log navigation to secure/insecure contexts
     if (tab.url.startsWith('https://')) {
-      console.log(`[Security] Secure context loaded: ${new URL(tab.url).hostname}`);
+      logger.debug(`[Security] Secure context loaded: ${new URL(tab.url).hostname}`);
     } else if (tab.url.startsWith('http://')) {
-      console.warn(`[Security] Insecure context loaded: ${new URL(tab.url).hostname}`);
+      logger.warn(`[Security] Insecure context loaded: ${new URL(tab.url).hostname}`);
     }
   }
 });
@@ -491,30 +495,30 @@ chrome.runtime.onMessage.addListener(handleSecureMessage);
 
 // Handle external connections (none allowed)
 chrome.runtime.onConnectExternal.addListener((port) => {
-  console.warn('[Security] Blocked external connection attempt');
+  logger.warn('[Security] Blocked external connection attempt');
   port.disconnect();
 });
 
 // Security audit logging
 chrome.runtime.onStartup.addListener(() => {
-  console.log('[Security] Extension startup - security systems active');
+  logger.debug('[Security] Extension startup - security systems active');
   
   // Start rate limit cleanup
   startRateLimitCleanup();
   
   // Verify manifest permissions
   const manifest = chrome.runtime.getManifest();
-  console.log('[Security] Active permissions:', manifest.permissions);
-  console.log('[Security] Host permissions:', manifest.host_permissions);
+  logger.debug('[Security] Active permissions:', manifest.permissions);
+  logger.debug('[Security] Host permissions:', manifest.host_permissions);
 });
 
 // Service worker lifecycle - cleanup on suspend
 chrome.runtime.onSuspend.addListener(() => {
-  console.log('[Security] Service worker suspending - cleaning up resources');
+  logger.debug('[Security] Service worker suspending - cleaning up resources');
   stopRateLimitCleanup();
 });
 
-console.log('[Security] Background service worker initialized with enterprise security');
+logger.debug('[Security] Background service worker initialized with enterprise security');
 
 // Context menu setup for per-site control
 chrome.runtime.onInstalled.addListener(() => {
@@ -531,7 +535,7 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ['action']
   });
   
-  console.log('[SiteSettings] Context menus created');
+  logger.debug('[SiteSettings] Context menus created');
 });
 
 // Context menu click handler
@@ -557,9 +561,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         siteSpecific: true
       });
       
-      console.log('[SiteSettings] Toggled site settings to', newEnabled, 'for', tab.url);
+      logger.debug('[SiteSettings] Toggled site settings to', newEnabled, 'for', tab.url);
     } catch (error) {
-      console.error('[SiteSettings] Error toggling site settings:', error);
+      logger.error('[SiteSettings] Error toggling site settings:', error);
     }
   } else if (info.menuItemId === 'bionic-clear-site-settings') {
     try {
@@ -571,30 +575,30 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         source: 'contextmenu'
       });
       
-      console.log('[SiteSettings] Cleared site settings for', tab.url);
+      logger.debug('[SiteSettings] Cleared site settings for', tab.url);
     } catch (error) {
-      console.error('[SiteSettings] Error clearing site settings:', error);
+      logger.error('[SiteSettings] Error clearing site settings:', error);
     }
   }
 });
 
 // Handle keyboard commands from manifest
 chrome.commands.onCommand.addListener((command) => {
-  console.log('[Security] Command received:', command);
+  logger.debug('[Security] Command received:', command);
   if (command === 'toggle-bionic') {
     // Find active tab and forward toggle
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (!tabs || !tabs[0]) return;
       const tabId = tabs[0].id;
       if (!SecurityValidator.validateOrigin(tabs[0].url)) {
-        console.warn('[Security] Command origin blocked for tab:', tabs[0].url);
+        logger.warn('[Security] Command origin blocked for tab:', tabs[0].url);
         return;
       }
       chrome.tabs.sendMessage(tabId, { action: 'toggle', source: 'command' }, (response) => {
         if (chrome.runtime.lastError) {
-          console.warn('[Security] Command forwarding failed:', chrome.runtime.lastError.message);
+          logger.warn('[Security] Command forwarding failed:', chrome.runtime.lastError.message);
         } else {
-          console.log('[Security] Toggle command forwarded, response:', response);
+          logger.debug('[Security] Toggle command forwarded, response:', response);
         }
       });
     });
@@ -717,7 +721,7 @@ function createContextMenus() {
       contexts: ['page', 'selection']
     });
 
-    console.log('[ContextMenu] Context menus created');
+    logger.debug('[ContextMenu] Context menus created');
   });
 }
 
@@ -750,12 +754,12 @@ function updateContextMenuState(intensity) {
  */
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab || !tab.id) {
-    console.warn('[ContextMenu] No valid tab for context menu action');
+    logger.warn('[ContextMenu] No valid tab for context menu action');
     return;
   }
 
   if (!SecurityValidator.validateOrigin(tab.url)) {
-    console.warn('[ContextMenu] Context menu blocked for restricted origin:', tab.url);
+    logger.warn('[ContextMenu] Context menu blocked for restricted origin:', tab.url);
     return;
   }
 
@@ -767,9 +771,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       // Toggle bionic reading
       chrome.tabs.sendMessage(tabId, { action: 'toggle', source: 'contextMenu' }, (response) => {
         if (chrome.runtime.lastError) {
-          console.warn('[ContextMenu] Toggle failed:', chrome.runtime.lastError.message);
+          logger.warn('[ContextMenu] Toggle failed:', chrome.runtime.lastError.message);
         } else {
-          console.log('[ContextMenu] Toggle successful:', response);
+          logger.debug('[ContextMenu] Toggle successful:', response);
         }
       });
       break;
@@ -789,7 +793,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       // Save to storage
       chrome.storage.sync.set({ bionicIntensity: intensity }, () => {
         if (chrome.runtime.lastError) {
-          console.error('[ContextMenu] Failed to save intensity:', chrome.runtime.lastError);
+          logger.error('[ContextMenu] Failed to save intensity:', chrome.runtime.lastError);
           return;
         }
         
@@ -800,9 +804,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           source: 'contextMenu'
         }, (response) => {
           if (chrome.runtime.lastError) {
-            console.warn('[ContextMenu] Set intensity failed:', chrome.runtime.lastError.message);
+            logger.warn('[ContextMenu] Set intensity failed:', chrome.runtime.lastError.message);
           } else {
-            console.log('[ContextMenu] Intensity set to:', intensity);
+            logger.debug('[ContextMenu] Intensity set to:', intensity);
             updateContextMenuState(intensity);
           }
         });
@@ -818,9 +822,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
           source: 'contextMenu'
         }, (response) => {
           if (chrome.runtime.lastError) {
-            console.warn('[ContextMenu] Process selection failed:', chrome.runtime.lastError.message);
+            logger.warn('[ContextMenu] Process selection failed:', chrome.runtime.lastError.message);
           } else {
-            console.log('[ContextMenu] Selection processed');
+            logger.debug('[ContextMenu] Selection processed');
           }
         });
       }
@@ -840,13 +844,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             source: 'contextMenu'
           }, (response) => {
             if (chrome.runtime.lastError) {
-              console.warn('[ContextMenu] Site enable failed:', chrome.runtime.lastError.message);
+              logger.warn('[ContextMenu] Site enable failed:', chrome.runtime.lastError.message);
             } else {
-              console.log('[ContextMenu] Site enabled:', url);
+              logger.debug('[ContextMenu] Site enabled:', url);
             }
           });
         } catch (error) {
-          console.error('[ContextMenu] Error enabling site:', error);
+          logger.error('[ContextMenu] Error enabling site:', error);
         }
       })();
       break;
@@ -865,19 +869,19 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             source: 'contextMenu'
           }, (response) => {
             if (chrome.runtime.lastError) {
-              console.warn('[ContextMenu] Site disable failed:', chrome.runtime.lastError.message);
+              logger.warn('[ContextMenu] Site disable failed:', chrome.runtime.lastError.message);
             } else {
-              console.log('[ContextMenu] Site disabled:', url);
+              logger.debug('[ContextMenu] Site disabled:', url);
             }
           });
         } catch (error) {
-          console.error('[ContextMenu] Error disabling site:', error);
+          logger.error('[ContextMenu] Error disabling site:', error);
         }
       })();
       break;
 
     default:
-      console.warn('[ContextMenu] Unknown menu item:', menuItemId);
+      logger.warn('[ContextMenu] Unknown menu item:', menuItemId);
   }
 });
 
