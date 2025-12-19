@@ -600,3 +600,304 @@ chrome.commands.onCommand.addListener((command) => {
     });
   }
 });
+// ========================================
+// Context Menu Management
+// ========================================
+
+/**
+ * Context menu IDs
+ */
+const CONTEXT_MENU_IDS = {
+  TOGGLE: 'bionic-toggle',
+  INTENSITY_LOW: 'bionic-intensity-low',
+  INTENSITY_MEDIUM: 'bionic-intensity-medium',
+  INTENSITY_HIGH: 'bionic-intensity-high',
+  PROCESS_SELECTION: 'bionic-process-selection',
+  SITE_ENABLE: 'bionic-site-enable',
+  SITE_DISABLE: 'bionic-site-disable',
+  PARENT_INTENSITY: 'bionic-intensity-parent',
+  PARENT_SITE: 'bionic-site-parent'
+};
+
+/**
+ * Intensity presets
+ */
+const INTENSITY_PRESETS = {
+  LOW: 0.3,
+  MEDIUM: 0.5,
+  HIGH: 0.7
+};
+
+/**
+ * Creates context menus on extension installation
+ */
+function createContextMenus() {
+  // Remove any existing menus first
+  chrome.contextMenus.removeAll(() => {
+    // Main toggle
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.TOGGLE,
+      title: 'Toggle Bionic Reading',
+      contexts: ['page', 'selection']
+    });
+
+    // Separator
+    chrome.contextMenus.create({
+      id: 'separator-1',
+      type: 'separator',
+      contexts: ['page', 'selection']
+    });
+
+    // Process selected text (only visible when text is selected)
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.PROCESS_SELECTION,
+      title: 'Process Selected Text',
+      contexts: ['selection']
+    });
+
+    // Intensity submenu parent
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.PARENT_INTENSITY,
+      title: 'Set Intensity',
+      contexts: ['page', 'selection']
+    });
+
+    // Intensity options
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.INTENSITY_LOW,
+      parentId: CONTEXT_MENU_IDS.PARENT_INTENSITY,
+      title: 'Low (30%)',
+      contexts: ['page', 'selection'],
+      type: 'radio'
+    });
+
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.INTENSITY_MEDIUM,
+      parentId: CONTEXT_MENU_IDS.PARENT_INTENSITY,
+      title: 'Medium (50%)',
+      contexts: ['page', 'selection'],
+      type: 'radio',
+      checked: true
+    });
+
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.INTENSITY_HIGH,
+      parentId: CONTEXT_MENU_IDS.PARENT_INTENSITY,
+      title: 'High (70%)',
+      contexts: ['page', 'selection'],
+      type: 'radio'
+    });
+
+    // Separator
+    chrome.contextMenus.create({
+      id: 'separator-2',
+      type: 'separator',
+      contexts: ['page', 'selection']
+    });
+
+    // Per-site settings submenu parent
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.PARENT_SITE,
+      title: 'This Site',
+      contexts: ['page', 'selection']
+    });
+
+    // Per-site enable/disable
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.SITE_ENABLE,
+      parentId: CONTEXT_MENU_IDS.PARENT_SITE,
+      title: 'Always Enable Here',
+      contexts: ['page', 'selection']
+    });
+
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_IDS.SITE_DISABLE,
+      parentId: CONTEXT_MENU_IDS.PARENT_SITE,
+      title: 'Always Disable Here',
+      contexts: ['page', 'selection']
+    });
+
+    console.log('[ContextMenu] Context menus created');
+  });
+}
+
+/**
+ * Updates context menu state based on current settings
+ * @param {number} intensity - Current intensity value
+ */
+function updateContextMenuState(intensity) {
+  // Determine which intensity radio should be checked
+  let checkedId = CONTEXT_MENU_IDS.INTENSITY_MEDIUM;
+  
+  if (intensity <= 0.35) {
+    checkedId = CONTEXT_MENU_IDS.INTENSITY_LOW;
+  } else if (intensity >= 0.65) {
+    checkedId = CONTEXT_MENU_IDS.INTENSITY_HIGH;
+  }
+
+  // Update radio buttons
+  [CONTEXT_MENU_IDS.INTENSITY_LOW, CONTEXT_MENU_IDS.INTENSITY_MEDIUM, CONTEXT_MENU_IDS.INTENSITY_HIGH].forEach(id => {
+    chrome.contextMenus.update(id, {
+      checked: id === checkedId
+    }).catch(() => {
+      // Ignore errors (menu might not exist yet)
+    });
+  });
+}
+
+/**
+ * Handles context menu clicks
+ */
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (!tab || !tab.id) {
+    console.warn('[ContextMenu] No valid tab for context menu action');
+    return;
+  }
+
+  if (!SecurityValidator.validateOrigin(tab.url)) {
+    console.warn('[ContextMenu] Context menu blocked for restricted origin:', tab.url);
+    return;
+  }
+
+  const tabId = tab.id;
+  const menuItemId = info.menuItemId;
+
+  switch (menuItemId) {
+    case CONTEXT_MENU_IDS.TOGGLE:
+      // Toggle bionic reading
+      chrome.tabs.sendMessage(tabId, { action: 'toggle', source: 'contextMenu' }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('[ContextMenu] Toggle failed:', chrome.runtime.lastError.message);
+        } else {
+          console.log('[ContextMenu] Toggle successful:', response);
+        }
+      });
+      break;
+
+    case CONTEXT_MENU_IDS.INTENSITY_LOW:
+    case CONTEXT_MENU_IDS.INTENSITY_MEDIUM:
+    case CONTEXT_MENU_IDS.INTENSITY_HIGH:
+      // Set intensity
+      const intensityMap = {
+        [CONTEXT_MENU_IDS.INTENSITY_LOW]: INTENSITY_PRESETS.LOW,
+        [CONTEXT_MENU_IDS.INTENSITY_MEDIUM]: INTENSITY_PRESETS.MEDIUM,
+        [CONTEXT_MENU_IDS.INTENSITY_HIGH]: INTENSITY_PRESETS.HIGH
+      };
+      
+      const intensity = intensityMap[menuItemId];
+      
+      // Save to storage
+      chrome.storage.sync.set({ bionicIntensity: intensity }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('[ContextMenu] Failed to save intensity:', chrome.runtime.lastError);
+          return;
+        }
+        
+        // Send to content script
+        chrome.tabs.sendMessage(tabId, {
+          action: 'setintensity',
+          intensity: intensity,
+          source: 'contextMenu'
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[ContextMenu] Set intensity failed:', chrome.runtime.lastError.message);
+          } else {
+            console.log('[ContextMenu] Intensity set to:', intensity);
+            updateContextMenuState(intensity);
+          }
+        });
+      });
+      break;
+
+    case CONTEXT_MENU_IDS.PROCESS_SELECTION:
+      // Process only selected text
+      if (info.selectionText) {
+        chrome.tabs.sendMessage(tabId, {
+          action: 'processSelection',
+          text: info.selectionText,
+          source: 'contextMenu'
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[ContextMenu] Process selection failed:', chrome.runtime.lastError.message);
+          } else {
+            console.log('[ContextMenu] Selection processed');
+          }
+        });
+      }
+      break;
+
+    case CONTEXT_MENU_IDS.SITE_ENABLE:
+      // Enable for this site
+      (async () => {
+        try {
+          const url = tab.url;
+          await SiteSettingsManager.setSiteSettings(url, { bionicEnabled: true });
+          
+          // Send message to content script
+          chrome.tabs.sendMessage(tabId, {
+            action: 'toggle',
+            forceEnable: true,
+            source: 'contextMenu'
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('[ContextMenu] Site enable failed:', chrome.runtime.lastError.message);
+            } else {
+              console.log('[ContextMenu] Site enabled:', url);
+            }
+          });
+        } catch (error) {
+          console.error('[ContextMenu] Error enabling site:', error);
+        }
+      })();
+      break;
+
+    case CONTEXT_MENU_IDS.SITE_DISABLE:
+      // Disable for this site
+      (async () => {
+        try {
+          const url = tab.url;
+          await SiteSettingsManager.setSiteSettings(url, { bionicEnabled: false });
+          
+          // Send message to content script
+          chrome.tabs.sendMessage(tabId, {
+            action: 'toggle',
+            forceDisable: true,
+            source: 'contextMenu'
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('[ContextMenu] Site disable failed:', chrome.runtime.lastError.message);
+            } else {
+              console.log('[ContextMenu] Site disabled:', url);
+            }
+          });
+        } catch (error) {
+          console.error('[ContextMenu] Error disabling site:', error);
+        }
+      })();
+      break;
+
+    default:
+      console.warn('[ContextMenu] Unknown menu item:', menuItemId);
+  }
+});
+
+// Create context menus on installation
+chrome.runtime.onInstalled.addListener(() => {
+  createContextMenus();
+  
+  // Load initial intensity to set correct radio button
+  chrome.storage.sync.get(['bionicIntensity'], (result) => {
+    const intensity = result.bionicIntensity || 0.5;
+    updateContextMenuState(intensity);
+  });
+});
+
+// Update context menu state when storage changes
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'sync' && changes.bionicIntensity) {
+    const newIntensity = changes.bionicIntensity.newValue;
+    if (typeof newIntensity === 'number') {
+      updateContextMenuState(newIntensity);
+    }
+  }
+});

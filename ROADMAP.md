@@ -1,19 +1,5 @@
 ### Short-term (0-7 days) - Quick
 
-# 2 Options page for advanced settings
-Why: Provide dedicated interface for advanced configuration separate from popup.
-Files: options.html, options.js, manifest.json
-Tasks:
-    Create dedicated options page accessible from popup or extensions page.
-    Add advanced settings: custom skip selectors, processing limits, debug mode.
-    Implement settings validation and import/export from options page.
-    Add reset to defaults and backup/restore functionality.
-Tests:
-    Unit tests: options page validation and storage.
-    Manual: verify settings persist, options accessible from multiple entry points.
-Success: clean options page with advanced controls separate from popup
-ETA: 2–3 days
-
 ### Mid-Term (1-3 weeks) - User polish
 
 # 2 Context menu integration

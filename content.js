@@ -1047,6 +1047,75 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
       break;
       
+    case 'processselection':
+      // Process only the selected text (from context menu)
+      const selectedText = request.text;
+      if (selectedText && typeof selectedText === 'string') {
+        try {
+          // Find the selection in the DOM and process it
+          const selection = window.getSelection();
+          if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const container = range.commonAncestorContainer;
+            
+            // Get the text nodes within the selection
+            const textNodes = [];
+            const walker = document.createTreeWalker(
+              container.nodeType === Node.TEXT_NODE ? container.parentNode : container,
+              NodeFilter.SHOW_TEXT,
+              {
+                acceptNode: (node) => {
+                  // Check if this text node intersects with the selection
+                  if (selection.containsNode(node, true)) {
+                    return NodeFilter.FILTER_ACCEPT;
+                  }
+                  return NodeFilter.FILTER_REJECT;
+                }
+              }
+            );
+            
+            let node;
+            while (node = walker.nextNode()) {
+              if (node.textContent.trim() && !shouldSkipElement(node.parentElement)) {
+                textNodes.push(node);
+              }
+            }
+            
+            // Process the selected text nodes
+            if (textNodes.length > 0) {
+              processTextNodes(textNodes);
+              sendResponse({ 
+                success: true, 
+                nodesProcessed: textNodes.length,
+                message: 'Selection processed'
+              });
+            } else {
+              sendResponse({ 
+                success: false, 
+                message: 'No processable text in selection'
+              });
+            }
+          } else {
+            sendResponse({ 
+              success: false, 
+              message: 'No active selection'
+            });
+          }
+        } catch (error) {
+          console.error('[Selection] Error processing selection:', error);
+          sendResponse({ 
+            success: false, 
+            error: error.message
+          });
+        }
+      } else {
+        sendResponse({ 
+          success: false, 
+          message: 'No text provided'
+        });
+      }
+      break;
+      
     case 'getstats':
       sendResponse({
         success: true,
