@@ -405,9 +405,9 @@ function calculateBionicBoldPositions(word) {
  * @returns {boolean} True if word should be transformed
  */
 function shouldProcessWord(word, index, words) {
-  // Use centralized validation (Issue #15: DRY principle)
-  if (!isValidTransformInput(word)) return false;
-  if (!word || word.length <= 1) return false;
+  // Basic word validation (don't use isValidTransformInput - it's for text blocks, not individual words)
+  if (!word || typeof word !== 'string') return false;
+  if (word.trim().length <= 1) return false;
   
   const letters = word.match(/[a-zA-Z]/g);
   if (!letters || letters.length < 2) return false;
