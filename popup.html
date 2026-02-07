@@ -164,7 +164,7 @@
     }
     
     input[type="checkbox"]:checked::after {
-      content: '✓';
+      content: '';
       position: absolute;
       top: -2px;
       left: 1px;
@@ -254,7 +254,7 @@
 </head>
 <body>
   <div class="header">
-    <h1>⚡ Bionic Reader</h1>
+    <h1>Bionic Reader</h1>
     <p>Read faster with gentle highlights</p>
   </div>
   
@@ -275,7 +275,7 @@
   <!-- Site-specific settings indicator -->
   <div id="siteSettings" style="display: none; background: rgba(255,255,255,0.15); border-radius: 6px; padding: 10px; margin: 10px 0; font-size: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
-      <span>🌐 <span id="siteName">This site</span> settings</span>
+      <span><span id="siteName">This site</span> settings</span>
       <button id="clearSiteBtn" style="padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; cursor: pointer; font-size: 11px;">Use global</button>
     </div>
     <div style="margin-top: 6px; opacity: 0.8; font-size: 11px;">
@@ -285,7 +285,7 @@
   
   <div class="stats" id="stats" style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <div style="font-weight: 600; opacity: 0.9;">📊 Reading Statistics</div>
+      <div style="font-weight: 600; opacity: 0.9;">Reading Statistics</div>
       <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
         <input type="checkbox" id="statsEnabled" style="margin: 0;">
         <span>Track progress</span>
@@ -313,7 +313,7 @@
   </div>
   
   <div class="tips">
-    <h4>💡 Smart Features:</h4>
+    <h4>Smart Features:</h4>
     <ul>
       <li>Skips titles & headings</li>
       <li>Ignores code & forms</li>
@@ -325,7 +325,6 @@
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
     <button id="resetBtn" style="flex:1;min-width:120px;padding:8px;border-radius:6px;border:none;background:rgba(255,255,255,0.12);color:white;cursor:pointer;font-weight:500;">Reset to default</button>
     <button id="optionsBtn" style="flex:1;min-width:140px;padding:8px 12px;border-radius:6px;border:none;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;" title="Advanced Settings">
-      <span style="font-size:16px;line-height:1;display:flex;align-items:center;">⚙️</span>
       <span style="line-height:1;">Advanced</span>
     </button>
   </div>

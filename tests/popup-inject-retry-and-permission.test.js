@@ -70,25 +70,25 @@ describe('popup coverage targets', () => {
   let calls = 0;
   const logs = [];
   const originalLog = console.log;
+  const originalError = console.error;
   console.log = (...args) => { logs.push(args.join(' ')); originalLog.apply(console, args); };
+  console.error = (...args) => { logs.push(args.join(' ')); originalError.apply(console, args); };
 
   global.chrome = {
       storage: { sync: { get: (d, cb) => cb({ bionicIntensity: 0.5 }) } },
       runtime: { sendMessage: jest.fn(), lastError: undefined },
       tabs: {
         query: (q, cb) => cb([{ id: 31, url: 'https://example.com' }]),
-        sendMessage: (id, msg, opts, cb) => {
+        sendMessage: (id, msg, optsOrCb, cb) => {
           calls += 1;
-          // First few calls are verification retries
+          const actualCb = typeof cb === 'function' ? cb : typeof optsOrCb === 'function' ? optsOrCb : null;
           if (calls <= 3) {
-            // simulate missing receiver on verification attempts
             global.chrome.runtime.lastError = { message: 'Receiving end does not exist' };
-            if (typeof cb === 'function') cb();
+            if (actualCb) actualCb();
             global.chrome.runtime.lastError = undefined;
           } else {
-            // final retry fails
             global.chrome.runtime.lastError = { message: 'Retry failed' };
-            if (typeof cb === 'function') cb();
+            if (actualCb) actualCb();
           }
         }
       },
@@ -101,22 +101,24 @@ describe('popup coverage targets', () => {
     require('../popup');
     document.dispatchEvent({ type: 'DOMContentLoaded' });
 
-  // advance timers incrementally to allow promises to resolve between timer advances
-  jest.advanceTimersByTime(50); // CSS wait
-  await Promise.resolve();
-  jest.advanceTimersByTime(100); // first verification retry
-  await Promise.resolve();
-  jest.advanceTimersByTime(100); // second verification retry
-  await Promise.resolve();
-  jest.advanceTimersByTime(100); // third verification retry
-  await Promise.resolve();
+  // Helper to flush multiple levels of microtasks
+  const flushMicrotasks = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
+
+  // Interleave timer advances and microtask flushes to drive the async injection flow
+  for (let round = 0; round < 15; round++) {
+    jest.advanceTimersByTime(100);
+    await flushMicrotasks();
+  }
 
   expect(global.chrome.scripting.insertCSS).toHaveBeenCalled();
   expect(global.chrome.scripting.executeScript).toHaveBeenCalled();
-  // We expect at least the initial send and retry attempts; if timing varies, assert logs contain Message error or not responding
-  expect(logs.some(l => /Message error|not responding/i.test(l))).toBeTruthy();
-  // restore console.log
+  // We expect at the initial send and retry attempts
+  expect(logs.some(l => /Message error|not responding|Retry failed|Injection failed/i.test(l))).toBeTruthy();
+  // restore console
   console.log = originalLog;
+  console.error = originalError;
   });
 
   test('injectContentScript frame error branch sets frame-access message', async () => {

@@ -328,7 +328,7 @@ describe('Popup - Advanced Features & Edge Cases', () => {
   describe('Status Indicator States', () => {
     test('should show enabled state correctly', () => {
       const status = document.getElementById('status');
-      status.textContent = '✨ Bionic Reading enabled';
+      status.textContent = 'Bionic Reading enabled';
       status.style.background = 'rgba(76, 175, 80, 0.2)';
       
       expect(status.textContent).toContain('enabled');
@@ -339,7 +339,7 @@ describe('Popup - Advanced Features & Edge Cases', () => {
 
     test('should show disabled state correctly', () => {
       const status = document.getElementById('status');
-      status.textContent = '💤 Bionic Reading disabled';
+      status.textContent = 'Bionic Reading disabled';
       status.style.background = 'rgba(189, 189, 189, 0.2)';
       
       expect(status.textContent).toContain('disabled');
@@ -354,7 +354,7 @@ describe('Popup - Advanced Features & Edge Cases', () => {
 
     test('should show error state', () => {
       const status = document.getElementById('status');
-      status.textContent = '❌ Cannot access this page';
+      status.textContent = 'Cannot access this page';
       status.style.background = 'rgba(244, 67, 54, 0.2)';
       
       expect(status.textContent).toContain('Cannot access');
@@ -367,7 +367,7 @@ describe('Popup - Advanced Features & Edge Cases', () => {
   describe('Keyboard Shortcuts', () => {
     test('should display keyboard shortcut hint', () => {
       const status = document.getElementById('status');
-      status.innerHTML = '💫 Ready to boost your reading!<br><small>Click toggle or press Alt+B</small>';
+      status.innerHTML = 'Ready to boost your reading!<br><small>Click toggle or press Alt+B</small>';
       
       expect(status.innerHTML).toContain('Alt+B');
     });

@@ -468,7 +468,7 @@ describe('Content Script - Advanced Features', () => {
     test('should create notification element', () => {
       const notification = document.createElement('div');
       notification.className = 'bionic-notification';
-      notification.textContent = '✨ Bionic Reading enabled';
+      notification.textContent = 'Bionic Reading enabled';
       
       document.body.appendChild(notification);
       

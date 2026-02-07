@@ -8,7 +8,7 @@ Bionic Reader transforms normal text into a format where the initial letters of 
 
 Transform any webpage text into bionic reading format for faster, more efficient reading. This extension intelligently bolds the first few letters of each word, allowing your brain to auto-complete words and dramatically increase reading speed.
 
-## 🌟 Features
+## Features
 
 - Convert regular text to bionic reading format
 - Adjustable highlighting intensity
@@ -30,7 +30,7 @@ Additional features include:
 
 # 2. ![alt text](<Screenshot 2025-08-26 164356.png>)
 
-## 📦 Installation Instructions
+## Installation Instructions
 
 # Installation thorugh marketplace ONLY AVAILABLE FOR EDGE
 
@@ -65,16 +65,16 @@ npm install
 2. Enable Developer Mode by clicking the toggle in the top-right corner
 3. Click "Load unpacked" button
 4. Select your folder and click "Select Folder"
-5. You're done! You'll see the ⚡ Bionic Reader icon in your toolbar
+5. You're done! You'll see the Bionic Reader icon in your toolbar
 
 ### Step 3: Install in Microsoft Edge
 1. Open Edge and navigate to edge://extensions/
 2. Enable Developer Mode by clicking the toggle on the left sidebar
 3. Click "Load unpacked" button
 4. Select your folder and click "Select Folder"
-5. You're done! The ⚡ icon will appear in your toolbar
+5. You're done! The icon will appear in your toolbar
 
-## 🚀 Usage
+## Usage
 
 ```javascript
 // Example usage of the Bionic Reader
@@ -85,7 +85,7 @@ const bionicText = bionicReader.convert(normalText);
 
 ### How to Use
 1. Navigate to any webpage with text content
-2. Click the ⚡ Bionic Reader icon in your browser toolbar
+2. Click the Bionic Reader icon in your browser toolbar
 3. Toggle the switch to "ON" in the popup
 4. Watch the magic happen! Text transforms instantly
 5. Toggle off anytime to return to normal reading
@@ -107,22 +107,22 @@ Quick try:
 - Use the "Highlight intensity" slider to make highlighting stronger or gentler.
 - Press Ctrl+Shift+B (Cmd+Shift+B on Mac) to toggle the extension from the keyboard.
 
-## 🎯 Smart Features Explained
+## Smart Features Explained
 
 ### What Gets Processed
-- ✅ Article content - Main reading text
-- ✅ Blog posts - Body paragraphs
-- ✅ Comments - User discussions
-- ✅ Descriptions - Product details, etc.
+- Article content - Main reading text
+- Blog posts - Body paragraphs
+- Comments - User discussions
+- Descriptions - Product details, etc.
 
 ### What Gets Skipped
-- ❌ Titles & Headers - Stay clean for scanning
-- ❌ Navigation menus - UI elements remain unchanged
-- ❌ Code blocks - Programming code stays readable
-- ❌ Forms & inputs - No interference with typing
-- ❌ Buttons & labels - UI text stays normal
+- Titles & Headers - Stay clean for scanning
+- Navigation menus - UI elements remain unchanged
+- Code blocks - Programming code stays readable
+- Forms & inputs - No interference with typing
+- Buttons & labels - UI text stays normal
 
-## 🛠️ Technical Implementation
+## Technical Implementation
 
 The extension consists of these key components:
 
@@ -133,7 +133,7 @@ The extension consists of these key components:
 - manifest.json: Configuration file defining permissions and extension structure.
 - src/site-settings.js: Per-site settings manager for customized reading preferences.
 
-## ✅ Testing & Quality Assurance
+## Testing & Quality Assurance
 
 This extension maintains enterprise-grade quality with comprehensive test coverage:
 
@@ -145,13 +145,13 @@ This extension maintains enterprise-grade quality with comprehensive test covera
   - Lines: 53.49% (627/1172)
 - **Success Rate**: 100% - All tests passing
 - **Test Categories**:
-  - ✅ Content script processing & DOM manipulation
-  - ✅ Background service worker security features
-  - ✅ Popup UI interactions & accessibility
-  - ✅ Bionic algorithm edge cases
-  - ✅ Site-specific settings management
-  - ✅ Security validation & input sanitization
-  - ✅ Cross-browser compatibility
+  - Content script processing & DOM manipulation
+  - Background service worker security features
+  - Popup UI interactions & accessibility
+  - Bionic algorithm edge cases
+  - Site-specific settings management
+  - Security validation & input sanitization
+  - Cross-browser compatibility
 
 Run tests with:
 ```bash
@@ -159,7 +159,7 @@ npm test                  # Run all tests
 npm test -- --coverage    # Run with coverage report
 ```
 
-## 🔒 Security Features
+## Security Features
 
 - Content Security Policy (CSP) - Prevents script injection attacks
 - Input Sanitization - All text is validated and cleaned before processing
@@ -168,7 +168,7 @@ npm test -- --coverage    # Run with coverage report
 - Origin Validation - Only allows secure origins and blocks dangerous protocols
 - Audit Logging - Security events are logged for monitoring
 
-## 🛡️ Privacy Considerations
+## Privacy Considerations
 
 - No Data Collection: All processing happens locally
 - Zero Tracking: No user activity monitoring or analytics
@@ -176,7 +176,7 @@ npm test -- --coverage    # Run with coverage report
 - No Network Requests: Works completely offline
 - Protocol Blocking: Blocks dangerous URLs automatically
 
-## 🆘 Troubleshooting
+## Troubleshooting
 
 ### Extension Not Working?
 - Refresh the page after installing or enabling
@@ -188,7 +188,7 @@ npm test -- --coverage    # Run with coverage report
 - Reload the extension through the extensions page
 - Try refreshing the webpage and toggle again
 
-## 📖 About Bionic Reading
+## About Bionic Reading
 
 Bionic Reading is a reading method that highlights the first few letters of words, allowing your brain to complete them automatically. This technique can:
 
@@ -202,4 +202,4 @@ Bionic Reading is a reading method that highlights the first few letters of word
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-Happy speed reading! 🚀⚡
+Happy speed reading!

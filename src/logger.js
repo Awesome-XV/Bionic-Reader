@@ -75,22 +75,9 @@ const logger = {
   table: isDebugMode() && console.table ? console.table.bind(console) : () => {}
 };
 
-/**
- * Updates debug mode at runtime (if needed)
- * @param {boolean} enabled - Whether to enable debug logging
- */
-function setDebugMode(enabled) {
-  if (typeof DEBUG_MODE !== 'undefined') {
-    // Can't modify const, but this function exists for future enhancement
-    logger.warn('[Logger] DEBUG_MODE is const, cannot be changed at runtime');
-  }
-}
-
-// Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     logger,
-    setDebugMode,
     isDebugMode
   };
 }

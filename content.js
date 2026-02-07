@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Bionic Reader Content Script
  * 
  * Transforms web page text into bionic reading format by selectively
@@ -7,6 +7,7 @@
  * @version 1.0.0
  * @license MIT
  */
+
 'use strict';
 
 // Debug mode flag - set to true only for development
@@ -22,15 +23,6 @@ const logger = {
   warn: console.warn.bind(console),
   error: console.error.bind(console)
 };
-
-/**
- * Debug logging utility - only outputs when DEBUG_MODE is true.
- * @deprecated Use logger.debug() instead
- * @param {...*} args - Arguments to log to console
- */
-function debugLog(...args) {
-  logger.debug(...args);
-}
 
 /**
  * @typedef {Object} BionicConfig
@@ -58,8 +50,14 @@ function debugLog(...args) {
  */
 
 /** @type {BionicConfig} */
-// Configuration based on official Bionic Reading research
 const CONFIG = {
+  CSS: {
+    FIXATION: 'bionic-fixation',
+    WRAPPER: 'bionic-wrapper',
+    NOTIFICATION: 'bionic-notification',
+    ENABLED: 'bionic-reading-enabled'
+  },
+
   MAX_NODES_PER_BATCH: 100,
   MAX_TOTAL_NODES: 3000,
   MAX_TEXT_LENGTH: 25000,
@@ -71,7 +69,7 @@ const CONFIG = {
   FUNCTION_WORD_RATIO: 0.35,   // Function words (articles, prepositions, etc.)
   SHORT_WORD_THRESHOLD: 2,     // Words ≤ 2 letters always bold first letter only
   
-  // Bionic Reading Algorithm Constants (Issue #13)
+  // Bionic Reading Algorithm Constants
   INTENSITY_BASE_MULTIPLIER: 0.5,      // Maps 0 intensity to 0.5x base ratio
   INTENSITY_RANGE: 1.0,                // Maps 1 intensity to 1.5x base ratio (0.5 + 1.0)
   INTENSITY_MAX_MULTIPLIER: 2.0,       // Hard cap at 2.0x base ratio
@@ -124,7 +122,6 @@ const functionWordCache = new Map();
  */
 
 /** @type {SessionStats} */
-// Statistics tracking
 let sessionStats = {
   wordsProcessed: 0,
   startTime: null,
@@ -132,7 +129,7 @@ let sessionStats = {
   lastActiveTime: Date.now()
 };
 
-// Statistics preference (default enabled for existing users) (Issue #19: Renamed to camelCase)
+// Statistics preference (default enabled for enhanced user insights)
 let statsTrackingEnabled = true;
 
 /**
@@ -145,7 +142,6 @@ let statsTrackingEnabled = true;
  * @example
  * trackWordsProcessed("Hello world") // Returns 2
  */
-// Statistics helper functions
 function trackWordsProcessed(text) {
   // Only track if statistics are enabled
   if (!statsTrackingEnabled || !text) return 0;
@@ -166,7 +162,6 @@ function trackWordsProcessed(text) {
   }
   sessionStats.lastActiveTime = now;
   
-  debugLog(`[STATS] Processed ${wordCount} words. Session total: ${sessionStats.wordsProcessed} words`);
   return wordCount;
 }
 
@@ -201,9 +196,7 @@ function saveStatsToStorage() {
       lastUpdate: Date.now()
     };
     
-    chrome.storage.local.set({ [today]: updatedStats }, () => {
-      debugLog(`[STATS] Saved daily stats:`, updatedStats);
-    });
+    chrome.storage.local.set({ [today]: updatedStats });
   });
 }
 
@@ -241,14 +234,13 @@ const FUNCTION_WORDS = new Set([
   'as', 'also', 'just', 'now', 'how', 'here', 'there', 'get', 'got', 'use'
 ]);
 
-logger.debug('[DEBUG] Function words set includes "and":', FUNCTION_WORDS.has('and'));
 
 /**
  * Determines if a word is a function word (articles, prepositions, etc.) 
  * or a content word (nouns, verbs, adjectives).
  * 
  * Function words receive lower bolding emphasis (35%) vs content words (50%).
- * Uses memoization cache for performance (Issue #21).
+ * Uses memoization cache for performance.
  * 
  * @param {string} word - Word to classify
  * @returns {boolean} True if word is a function word, false if content word
@@ -276,27 +268,7 @@ function isFunctionWord(word) {
 }
 
 /**
- * Finds the index of the first vowel in a word.
- * 
- * @param {string} word - Word to search
- * @returns {number} Index of first vowel, or -1 if none found
- * 
- * @example
- * indexOfFirstVowel("reading") // 1 (position of 'e')
- * indexOfFirstVowel("shy")     // 2 (position of 'y' is not a vowel, so returns -1)
- */
-function indexOfFirstVowel(word) {
-  const vowels = 'aeiouAEIOU';
-  for (let i = 0; i < word.length; i++) {
-    if (vowels.includes(word[i])) {
-      return i;
-    }
-  }
-  return -1; // No vowel found
-}
-
-/**
- * Validates if text input is suitable for bionic transformation (Issue #15).
+ * Validates if text input is suitable for bionic transformation.
  * 
  * Checks that text is non-empty, has minimum length, and contains
  * sufficient letter content (>50% letters).
@@ -316,28 +288,6 @@ function isValidTransformInput(text) {
   // Check if text has meaningful content (>50% letters)
   const letterCount = (text.match(/[a-zA-Z]/g) || []).length;
   return letterCount >= text.length * 0.5;
-}
-
-/**
- * Checks if bolding at position B would split a digraph (two-letter combination).
- * 
- * Digraphs like "th", "ch", "sh" should not be split to maintain readability.
- * 
- * @param {string} word - The word being processed
- * @param {number} B - The proposed boundary position for bolding
- * @returns {boolean} True if bolding would split a digraph
- * 
- * @example
- * splitsDigraph("the", 2)  // true (would split "th")
- * splitsDigraph("cat", 2)  // false (no digraph)
- */
-function splitsDigraph(word, B) {
-  if (!CONFIG.ENABLE_DIGRAPH_PROTECTION || B >= word.length - 1 || B < 2) return false;
-  
-  // Check if there's a digraph that would be split by the boundary at position B
-  // Look for digraphs that span across the boundary (positions B-1 and B)
-  const potentialDigraph = word.slice(B - 1, B + 1).toLowerCase();
-  return DIGRAPHS.has(potentialDigraph);
 }
 
 /**
@@ -385,13 +335,7 @@ function calculateBionicBoldPositions(word) {
   
   const B = Math.min(N - 1, Math.max(1, Math.ceil(N * scaled)));
   
-  const positions = [];
-  for (let i = 0; i < B; i++) {
-    positions.push(i);
-  }
-  
-  debugLog(`[BIONIC] Word: "${word}" | Letters: "${letterString}" | Length: ${N} | Function: ${isFunction} | Bold positions: [${positions.join(', ')}]`);
-  return positions;
+  return Array.from({ length: B }, (_, i) => i);
 }
 
 /**
@@ -400,20 +344,15 @@ function calculateBionicBoldPositions(word) {
  * Filters out invalid text, short words, and already-processed words.
  * 
  * @param {string} word - Word to check
- * @param {number} index - Position of word in sentence (unused but kept for compatibility)
- * @param {string[]} words - Array of all words (unused but kept for compatibility)
  * @returns {boolean} True if word should be transformed
  */
-function shouldProcessWord(word, index, words) {
-  // Basic word validation (don't use isValidTransformInput - it's for text blocks, not individual words)
+function shouldProcessWord(word) {
   if (!word || typeof word !== 'string') return false;
   if (word.trim().length <= 1) return false;
   
   const letters = word.match(/[a-zA-Z]/g);
   if (!letters || letters.length < 2) return false;
-  
-  // Skip if already processed (has bionic spans)
-  if (word.includes('<span class="bionic-fixation"')) return false;
+  if (word.includes(`<span class="${CONFIG.CSS.FIXATION}"`)) return false;
   
   return true;
 }
@@ -422,77 +361,61 @@ function shouldProcessWord(word, index, words) {
  * Wrapper function for transforming a single word with error handling.
  * 
  * @param {string} word - Word to transform
- * @param {number} index - Position in word array
- * @param {string[]} words - Array of all words
  * @returns {string} Transformed HTML or original word if processing fails
  */
-function transformWord(word, index, words) {
-  // Skip processing if word shouldn't be processed
-  if (!shouldProcessWord(word, index, words)) return word;
+function transformWord(word) {
+  if (!shouldProcessWord(word)) return word;
   
-  // Handle contractions by processing the main part
   if (word.includes("'")) {
     const parts = word.split("'");
-    const transformedFirst = transformSingleWord(parts[0], index, words);
-    return transformedFirst + "'" + parts.slice(1).join("'");
+    return transformSingleWord(parts[0]) + "'" + parts.slice(1).join("'");
   }
   
-  return transformSingleWord(word, index, words);
+  return transformSingleWord(word);
 }
 
 /**
  * Transforms a single word into bionic reading format by bolding specific letters.
  * 
- * Uses single-pass algorithm for performance (Issue #14).
+ * Uses single-pass algorithm for performance.
  * Preserves non-letter characters (punctuation, numbers) in their original positions.
  * 
  * @param {string} word - Word to transform
- * @param {number} index - Position in word array (unused)
- * @param {string[]} words - Array of all words (unused)
  * @returns {string} HTML string with <span> tags for bolded letters
  * 
  * @example
  * transformSingleWord("reading") // Returns "REAding" with bold HTML
  */
-function transformSingleWord(word, index, words) {
-  debugLog(`[TRANSFORM] Starting with word: "${word}"`);
-  
-  // Build letter info array in single pass (Issue #14: optimized for performance)
-  const letterInfo = [];
+function transformSingleWord(word) {
+  // Build char-to-letter-index map in a single pass (O(n) instead of O(n²) findIndex)
+  const charToLetterIdx = new Map();
+  let letterCount = 0;
   for (let i = 0; i < word.length; i++) {
     if (/[a-zA-Z]/.test(word[i])) {
-      letterInfo.push({ charIndex: i, letterIndex: letterInfo.length });
+      charToLetterIdx.set(i, letterCount++);
     }
   }
   
-  if (letterInfo.length < 2) return word;
+  if (letterCount < 2) return word;
   
   const boldPositions = new Set(calculateBionicBoldPositions(word));
   if (boldPositions.size === 0) return word;
   
-  // Map intensity [0,1] to font-weight range [300,900] for more visible difference
   const weight = Math.round(300 + (bionicIntensity * 600));
   
-  // Build result in single pass (Issue #14: optimized array building)
-  let result = '';
+  const parts = [];
   for (let i = 0; i < word.length; i++) {
-    const char = word[i];
+    const ch = word[i];
+    const letterIdx = charToLetterIdx.get(i);
     
-    if (/[a-zA-Z]/.test(char)) {
-      const letterIdx = letterInfo.findIndex(info => info.charIndex === i);
-      
-      if (letterIdx !== -1 && boldPositions.has(letterIdx)) {
-        result += `<span class="bionic-fixation" style="font-weight:${weight}">${char}</span>`;
-      } else {
-        result += char;
-      }
+    if (letterIdx !== undefined && boldPositions.has(letterIdx)) {
+      parts.push(`<span class="${CONFIG.CSS.FIXATION}" style="font-weight:${weight}">${ch}</span>`);
     } else {
-      result += char;
+      parts.push(ch);
     }
   }
   
-  debugLog(`[TRANSFORM] "${word}" -> "${result}"`);
-  return result;
+  return parts.join('');
 }
 
 /**
@@ -508,63 +431,51 @@ function transformSingleWord(word, index, words) {
  * transformText("Hello world") // Returns bionic-formatted HTML
  */
 function transformText(text) {
-  // Use centralized validation (Issue #15: DRY principle)
   if (!isValidTransformInput(text)) return text;
   
-  // Security: Limit text length
   if (text.length > CONFIG.MAX_TEXT_LENGTH) {
-    logger.warn('[Security] Text too long, truncating for processing');
     text = text.substring(0, CONFIG.MAX_TEXT_LENGTH);
   }
   
-  debugLog(`[TEXT] Processing text: "${text}"`);
-  
   try {
-    // Split text into words while preserving all whitespace and punctuation
     const parts = text.split(/(\s+)/);
     
-    const result = parts.map((part, index) => {
-      // Keep whitespace exactly as-is
+    const result = parts.map(part => {
       if (/^\s+$/.test(part)) return part;
-      
-      // Transform words - each non-whitespace part is treated as a word
       try {
-        return transformWord(part, index, parts);
+        return transformWord(part);
       } catch (wordError) {
-        logger.warn('[Transform] Failed to transform word:', part, wordError);
-        return part; // Return original word on error
+        logger.warn('[Transform] Word error:', part, wordError);
+        return part;
       }
     }).join('');
     
-    debugLog(`[TEXT] Result: "${result}"`);
     return result;
   } catch (error) {
-    logger.error('[Transform] Critical error in transformText:', error);
-    return text; // Return original text on critical error
+    logger.error('[Transform] Error:', error);
+    return text;
   }
 }
+
+const SKIP_TAGS = new Set([
+  'SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE', 'TEXTAREA', 'INPUT',
+  'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TITLE', 'BUTTON', 'LABEL',
+  'SELECT', 'OPTION', 'CANVAS', 'SVG', 'NAV', 'HEADER', 'FOOTER'
+]);
+
+const SKIP_ROLES = new Set(['navigation', 'banner', 'complementary', 'contentinfo', 'toolbar']);
 
 function shouldSkipElement(element) {
   if (!element || !element.tagName) return true;
   
-  const skipTags = [
-    'SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE', 'TEXTAREA', 'INPUT',
-    'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TITLE', 'BUTTON', 'LABEL',
-    'SELECT', 'OPTION', 'CANVAS', 'SVG', 'NAV', 'HEADER', 'FOOTER'
-  ];
-  
-  if (skipTags.includes(element.tagName)) return true;
+  if (SKIP_TAGS.has(element.tagName)) return true;
   if (element.contentEditable === 'true') return true;
   
-  // Skip navigation and UI elements
-  const skipClasses = ['nav', 'menu', 'header', 'footer', 'sidebar', 'breadcrumb', 'toolbar', 'navigation', 'pagination'];
-  // Handle both string className and DOMTokenList (SVG elements)
   const className = (typeof element.className === 'string' ? element.className : element.className?.baseVal || '').toLowerCase();
-  if (skipClasses.some(skip => className.includes(skip))) return true;
+  if (/\b(nav|menu|header|footer|sidebar|breadcrumb|toolbar|navigation|pagination)\b/.test(className)) return true;
   
-  // Skip by role
   const role = element.getAttribute('role');
-  if (role && ['navigation', 'banner', 'complementary', 'contentinfo', 'toolbar'].includes(role)) return true;
+  if (role && SKIP_ROLES.has(role)) return true;
   
   // Skip short links and buttons
   if ((element.tagName === 'A' || element.tagName === 'BUTTON') && 
@@ -575,7 +486,7 @@ function shouldSkipElement(element) {
 
 function createSelectableWrapper(transformedHTML, originalText) {
   const wrapper = document.createElement('span');
-  wrapper.className = 'bionic-wrapper';
+  wrapper.className = CONFIG.CSS.WRAPPER;
   wrapper.innerHTML = transformedHTML;
   
   // Ensure text is copyable
@@ -628,7 +539,7 @@ function mergeAdjacentTextNodes(textNodes) {
 async function processTextNodesBatch(textNodes, startIndex = 0, signal = null) {
   // Check for abort signal
   if (signal?.aborted) {
-    debugLog('[Batch] Processing aborted');
+    logger.debug('[Batch] Processing aborted');
     return processedCount;
   }
   
@@ -642,7 +553,7 @@ async function processTextNodesBatch(textNodes, startIndex = 0, signal = null) {
   for (const nodeGroup of mergedGroups) {
     // Check abort before each group
     if (signal?.aborted) {
-      debugLog('[Batch] Processing aborted mid-batch');
+      logger.debug('[Batch] Processing aborted mid-batch');
       return processedCount;
     }
     
@@ -656,14 +567,14 @@ async function processTextNodesBatch(textNodes, startIndex = 0, signal = null) {
       const letterCount = (combinedText.match(/[a-zA-Z]/g) || []).length;
       if (letterCount < combinedText.length * 0.5) continue;
       
-      debugLog(`[BATCH] Processing merged text: "${combinedText}"`);
+      logger.debug(`[BATCH] Processing merged text: "${combinedText}"`);
       const transformedHTML = transformText(combinedText);
       
       // Track words processed for statistics
       trackWordsProcessed(combinedText);
       
-      if (transformedHTML !== combinedText && transformedHTML.includes('<span class="bionic-fixation"')) {
-        debugLog(`[BATCH] Transformed: "${transformedHTML}"`);
+      if (transformedHTML !== combinedText && transformedHTML.includes(`<span class="${CONFIG.CSS.FIXATION}"`)) {
+        logger.debug(`[BATCH] Transformed: "${transformedHTML}"`);
         const wrapper = createSelectableWrapper(transformedHTML, combinedText);
         
         originalTexts.set(wrapper, combinedText);
@@ -720,7 +631,7 @@ async function processTextNodes(element) {
           if (shouldSkipElement(node.parentElement)) return NodeFilter.FILTER_REJECT;
           if (!node.textContent || !node.textContent.trim()) return NodeFilter.FILTER_REJECT;
           if (node.textContent.trim().length < 5) return NodeFilter.FILTER_REJECT;
-          if (node.parentElement && node.parentElement.classList.contains('bionic-wrapper')) return NodeFilter.FILTER_REJECT;
+          if (node.parentElement && node.parentElement.classList.contains(CONFIG.CSS.WRAPPER)) return NodeFilter.FILTER_REJECT;
           if (processedNodes.has(node)) return NodeFilter.FILTER_REJECT;
           
           return NodeFilter.FILTER_ACCEPT;
@@ -795,9 +706,9 @@ async function enableBionic() {
   bionicEnabled = true;
   processedCount = 0;
   processedNodes.clear();
-  document.body.classList.add('bionic-reading-enabled');
+  document.body.classList.add(CONFIG.CSS.ENABLED);
   
-  showNotification('🧠 Fixed Bionic Reading activated!', 'success');
+  showNotification('ðŸ§  Fixed Bionic Reading activated!', 'success');
   
   // Focus on main content with priority order
   const contentSelectors = [
@@ -857,10 +768,10 @@ async function enableBionic() {
   
   if (processedCount > 0) {
     setTimeout(() => {
-    showNotification(`✅ Enhanced ${processedCount} sections – enjoy faster reading!`, 'success');
+    showNotification(`âœ… Enhanced ${processedCount} sections â€“ enjoy faster reading!`, 'success');
     }, 800);
   } else {
-  showNotification('ℹ️ No suitable text found on this page', 'info');
+  showNotification('â„¹ï¸ No suitable text found on this page', 'info');
   }
 }
 
@@ -869,7 +780,7 @@ function disableBionic() {
   
   logger.debug('Disabling Bionic Reading...');
   bionicEnabled = false;
-  document.body.classList.remove('bionic-reading-enabled');
+  document.body.classList.remove(CONFIG.CSS.ENABLED);
   
   // Abort any in-progress processing
   if (processingAbortController) {
@@ -888,9 +799,9 @@ function disableBionic() {
   // Save final session stats
   saveStatsToStorage();
   
-  showNotification('📖 Normal reading restored', 'info');
+  showNotification('ðŸ“– Normal reading restored', 'info');
   
-  const wrappers = document.querySelectorAll('.bionic-wrapper');
+  const wrappers = document.querySelectorAll(`.${CONFIG.CSS.WRAPPER}`);
   logger.debug(`Removing ${wrappers.length} bionic wrappers`);
   
   wrappers.forEach(wrapper => {
@@ -908,11 +819,11 @@ function disableBionic() {
 }
 
 function showNotification(message, type = 'info') {
-  const existing = document.querySelector('.bionic-notification');
+  const existing = document.querySelector(`.${CONFIG.CSS.NOTIFICATION}`);
   if (existing) existing.remove();
   
   const notification = document.createElement('div');
-  notification.className = `bionic-notification bionic-${type}`;
+  notification.className = `${CONFIG.CSS.NOTIFICATION} bionic-${type}`;
   notification.textContent = message;
   
   let bgColor = '#2196F3';
@@ -972,7 +883,7 @@ async function loadSiteSettings() {
       bionicCoverage = Number(settings.coverage) || 0.4;
       usingSiteSpecificSettings = Boolean(settings.isCustomized);
       
-      debugLog('[SiteSettings] Loaded settings:', {
+      logger.debug('[SiteSettings] Loaded settings:', {
         origin: currentSiteOrigin,
         enabled: bionicEnabled,
         intensity: bionicIntensity,
@@ -992,7 +903,7 @@ async function loadSiteSettings() {
       }, (items) => {
         bionicIntensity = Number(items.bionicIntensity) || 0.5;
         bionicCoverage = Number(items.bionicCoverage) || 0.4;
-        debugLog('[SiteSettings] Using global fallback settings');
+        logger.debug('[SiteSettings] Using global fallback settings');
       });
     }
   } catch (error) {
@@ -1018,7 +929,7 @@ function toggleBionic() {
     }, (response) => {
       if (response && response.success) {
         usingSiteSpecificSettings = true;
-        debugLog('[SiteSettings] Saved enabled state for site:', bionicEnabled);
+        logger.debug('[SiteSettings] Saved enabled state for site:', bionicEnabled);
       }
     });
   }
@@ -1136,7 +1047,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     case 'setstatsenabled':
       const enabled = Boolean(request.statsEnabled);
       statsTrackingEnabled = enabled;
-      debugLog(`[STATS] Statistics tracking ${enabled ? 'enabled' : 'disabled'}`);
+      logger.debug(`[STATS] Statistics tracking ${enabled ? 'enabled' : 'disabled'}`);
       
       // If disabling, save current session stats before clearing
       if (!enabled && sessionStats.wordsProcessed > 0) {
@@ -1172,7 +1083,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       // Compute font-weight using coverage
       const weight = Math.round(200 + (bionicCoverage * 800));
-      const wrappers = document.querySelectorAll('.bionic-wrapper');
+      const wrappers = document.querySelectorAll(`.${CONFIG.CSS.WRAPPER}`);
       
       wrappers.forEach(wrapper => {
         try {
@@ -1181,16 +1092,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const transformed = transformText(original);
           
           // Replace innerHTML only if transformation produced bionic spans
-          if (transformed && transformed !== original && transformed.includes('bionic-fixation')) {
+          if (transformed && transformed !== original && transformed.includes(CONFIG.CSS.FIXATION)) {
             wrapper.innerHTML = transformed;
-            // Update font-weight for any existing spans
-            wrapper.querySelectorAll('.bionic-fixation').forEach(s => s.style.fontWeight = weight);
+            wrapper.querySelectorAll(`.${CONFIG.CSS.FIXATION}`).forEach(s => s.style.fontWeight = weight);
           } else {
-            // Fallback: update font-weight of existing spans
-            wrapper.querySelectorAll('.bionic-fixation').forEach(s => s.style.fontWeight = weight);
+            wrapper.querySelectorAll(`.${CONFIG.CSS.FIXATION}`).forEach(s => s.style.fontWeight = weight);
           }
         } catch (err) {
-          wrapper.querySelectorAll('.bionic-fixation').forEach(s => s.style.fontWeight = weight);
+          wrapper.querySelectorAll(`.${CONFIG.CSS.FIXATION}`).forEach(s => s.style.fontWeight = weight);
         }
       });
 
@@ -1257,8 +1166,8 @@ function startObserver() {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.TEXT_NODE || 
             (node.nodeType === Node.ELEMENT_NODE && 
-             !node.classList.contains('bionic-wrapper') &&
-             !node.classList.contains('bionic-notification'))) {
+             !node.classList.contains(CONFIG.CSS.WRAPPER) &&
+             !node.classList.contains(CONFIG.CSS.NOTIFICATION))) {
           hasNewText = true;
           newNodes.push(node);
         }
@@ -1281,7 +1190,7 @@ function startObserver() {
         
         for (const node of newNodes) {
           if (node.nodeType === Node.ELEMENT_NODE && 
-              !node.classList.contains('bionic-wrapper') &&
+              !node.classList.contains(CONFIG.CSS.WRAPPER) &&
               processedCount < CONFIG.MAX_TOTAL_NODES) {
             
             const textContent = node.textContent || '';

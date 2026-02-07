@@ -49,28 +49,31 @@ const DEMO_SAMPLE = 'Reading this demo text normally.';
  */
 function updateDemoHTML(text, intensity = 0.5, coverage = undefined) {
   if (!text) return '';
-  const parts = text.split(/(\s+)/);
-  function calcBoldCount(word, intensity = 0.5) {
+  
+  const hasCoverage = coverage != null;
+  const weightSource = hasCoverage ? (Number(coverage) || 0.4) : (Number(intensity) || 0.5);
+  const weight = Math.round(200 + (weightSource * 800));
+  
+  function calcBoldCount(word) {
     const letters = (word.match(/[a-zA-Z]/g) || []).length;
     if (letters <= 1) return 0;
-    // Small words keep a larger ratio; longer words use a smaller prefix.
+    
+    if (hasCoverage) {
+      const cov = Math.max(0.05, Math.min(0.95, Number(coverage) || 0.4));
+      return Math.min(letters - 1, Math.ceil(letters * cov));
+    }
+    
     const baseRatio = letters <= 3 ? 0.66 : 0.5;
-    // Scale by intensity so popup preview matches content script behavior
     const multiplier = Math.max(0, Math.min(2, 0.5 + Number(intensity || 0.5)));
     const scaled = Math.max(0.05, Math.min(0.95, baseRatio * multiplier));
     return Math.min(letters - 1, Math.ceil(letters * scaled));
   }
 
-  // Decide weight source: if coverage is provided, use it; otherwise fall back to intensity
-  const weightSource = (typeof coverage === 'undefined' || coverage === null) ? (Number(intensity) || 0.5) : (Number(coverage) || 0.4);
-  const weight = Math.round(200 + (weightSource * 800));
-
-  return parts.map((part) => {
+  return text.split(/(\s+)/).map(part => {
     if (/^\s+$/.test(part)) return part;
     let letterIndex = 0;
-    const chars = part.split('');
-  const boldCount = calcBoldCount(part, intensity);
-    return chars.map(ch => {
+    const boldCount = calcBoldCount(part);
+    return part.split('').map(ch => {
       if (/[a-zA-Z]/.test(ch)) {
         const out = (letterIndex < boldCount) ? `<span class="demo-bold" style="font-weight:${weight}">${ch}</span>` : ch;
         letterIndex++;
@@ -81,43 +84,8 @@ function updateDemoHTML(text, intensity = 0.5, coverage = undefined) {
   }).join('');
 }
 
-// Demo-only helper: allow coverage override when previewing in popup
-function updateDemoHTMLWithCoverage(text, intensity = 0.5, coverage = undefined) {
-  if (!text) return '';
-  const parts = text.split(/(\s+)/);
-
-  function calcBoldCountWithCoverage(word, intensity = 0.5) {
-    const letters = (word.match(/[a-zA-Z]/g) || []).length;
-    if (letters <= 1) return 0;
-    if (coverage == null) {
-      const baseRatio = letters <= 3 ? 0.66 : 0.5;
-      const multiplier = Math.max(0, Math.min(2, 0.5 + Number(intensity || 0.5)));
-      const scaled = Math.max(0.05, Math.min(0.95, baseRatio * multiplier));
-      return Math.min(letters - 1, Math.ceil(letters * scaled));
-    }
-    // coverage is a fraction 0..1 representing portion to bold
-    const cov = Math.max(0.05, Math.min(0.95, Number(coverage) || 0.4));
-    return Math.min(letters - 1, Math.ceil(letters * cov));
-  }
-
-  const weightSource = (typeof coverage === 'undefined' || coverage === null) ? (Number(intensity) || 0.5) : (Number(coverage) || 0.4);
-  const weight = Math.round(200 + (weightSource * 800));
-
-  return parts.map((part) => {
-    if (/^\s+$/.test(part)) return part;
-    let letterIndex = 0;
-    const chars = part.split('');
-  const boldCount = calcBoldCountWithCoverage(part, intensity);
-    return chars.map(ch => {
-      if (/[a-zA-Z]/.test(ch)) {
-        const out = (letterIndex < boldCount) ? `<span class="demo-bold" style="font-weight:${weight}">${ch}</span>` : ch;
-        letterIndex++;
-        return out;
-      }
-      return ch;
-    }).join('');
-  }).join('');
-}
+// Alias for backward compatibility with coverage-specific callers
+const updateDemoHTMLWithCoverage = updateDemoHTML;
 // When running in a test/Node environment, avoid running DOM code on require.
 // Also try to reuse the shared `ensureInjected` helper from `src/popup-inject.js`
 let importedEnsureInjected = null;
@@ -253,13 +221,13 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
         if (chrome.runtime.lastError) {
           logger.error('Tab query error:', chrome.runtime.lastError);
-          status.textContent = '❌ Cannot access current tab';
+          status.textContent = 'Cannot access current tab';
           status.style.background = 'rgba(244,67,54,0.2)';
           return;
         }
         
         if (!tabs || !tabs[0]) {
-          status.textContent = '❌ No active tab found';
+          status.textContent = 'No active tab found';
           status.style.background = 'rgba(244,67,54,0.2)';
           return;
         }
@@ -268,14 +236,14 @@ if (typeof document !== 'undefined' && document.addEventListener) {
         
         // Check for restricted contexts
         if (isRestrictedContext(tab.url)) {
-          status.textContent = '⚠️ Not available in reader mode/browser pages';
+          status.textContent = 'Not available in reader mode/browser pages';
           status.style.background = 'rgba(255,193,7,0.2)';
           toggleSwitch.style.opacity = '0.5';
           toggleSwitch.style.pointerEvents = 'none';
           
           // Add helpful tip for reader mode
           if (tab.url && (tab.url.includes('read') || tab.url.includes('reader'))) {
-            status.innerHTML = '📖 Reader mode detected<br><small>Try using Bionic Reader on the original page</small>';
+            status.innerHTML = 'Reader mode detected<br><small>Try using Bionic Reader on the original page</small>';
           }
           return;
         }
@@ -284,14 +252,14 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       });
     } catch (error) {
       logger.error('Tab access error:', error);
-      status.textContent = '❌ Unable to access this page';
+      status.textContent = 'Unable to access this page';
       status.style.background = 'rgba(244,67,54,0.2)';
     }
   }
 
   // Enhanced content script injection with synchronization and verification
   function injectContentScript(tabId, callback) {
-    status.textContent = '🔄 Setting up Bionic Reader...';
+    status.textContent = 'Setting up Bionic Reader...';
     
     // Step 1: Inject CSS
     chrome.scripting.insertCSS({
@@ -336,16 +304,16 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       
       // Check if it's a permission issue
       if (error.message.includes('Cannot access') || error.message.includes('permission')) {
-        status.innerHTML = '🔒 Permission denied<br><small>This page blocks extensions</small>';
+        status.innerHTML = 'Permission denied<br><small>This page blocks extensions</small>';
         status.style.background = 'rgba(244,67,54,0.2)';
       } else if (error.message.includes('frame')) {
-        status.innerHTML = '🖼️ Frame access blocked<br><small>Try refreshing the page</small>';
+        status.innerHTML = 'Frame access blocked<br><small>Try refreshing the page</small>';
         status.style.background = 'rgba(255,193,7,0.2)';
       } else if (error.message.includes('not responding')) {
-        status.textContent = '⏱️ Timeout. Try refreshing the page.';
+        status.textContent = 'Timeout. Try refreshing the page.';
         status.style.background = 'rgba(255,193,7,0.2)';
       } else {
-        status.textContent = '❌ Failed to load. Try refreshing the page.';
+        status.textContent = 'Failed to load. Try refreshing the page.';
         status.style.background = 'rgba(244,67,54,0.2)';
       }
       
@@ -397,45 +365,32 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Statistics helper functions
+  const AVG_WPM = 225;
+  const IMPROVEMENT_RATE = 0.15;
+
   function formatTime(milliseconds) {
     const seconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     
-    if (hours > 0) {
-      return `${hours}h ${minutes % 60}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m`;
-    } else {
-      return `${seconds}s`;
-    }
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m`;
+    return `${seconds}s`;
   }
   
   function estimateTimeSaved(wordsProcessed) {
-    // Research suggests bionic reading can improve speed by 10-20%
-    // Average reading speed is 200-250 WPM, so time saved per word is roughly 0.01-0.02 seconds
-    const secondsPerWord = 60 / 225; // 225 WPM average
-    const improvementRate = 0.15; // 15% improvement estimate
-    return Math.round(wordsProcessed * secondsPerWord * improvementRate);
+    return Math.round(wordsProcessed * (60 / AVG_WPM) * IMPROVEMENT_RATE);
   }
   
-  // Export functions for testing
   if (typeof global !== 'undefined') {
     global.formatTime = formatTime;
     global.estimateTimeSaved = estimateTimeSaved;
   }
   
-  function loadAndDisplayStats(statsEnabled = true) {
-    // Skip stats loading if chrome.storage is not available (e.g., in tests)
-    if (!chrome?.storage?.local) {
-      return;
-    }
+  function loadAndDisplayStats(statsOn = true) {
+    if (!chrome?.storage?.local) return;
     
-    const statsContent = document.getElementById('statsContent');
-    const statsDisabled = document.getElementById('statsDisabled');
-    
-    if (!statsEnabled) {
+    if (!statsOn) {
       if (statsContent) statsContent.style.display = 'none';
       if (statsDisabled) statsDisabled.style.display = 'block';
       return;
@@ -448,14 +403,9 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     
     chrome.storage.local.get([today], (result) => {
       const todayStats = result[today] || { wordsProcessed: 0, activeTime: 0, sessions: 0 };
-      
-      const wordsElement = document.getElementById('wordsToday');
-      const timeElement = document.getElementById('timeToday');
-      const savedElement = document.getElementById('timeSaved');
-      
-      if (wordsElement) wordsElement.textContent = todayStats.wordsProcessed.toLocaleString();
-      if (timeElement) timeElement.textContent = formatTime(todayStats.activeTime);
-      if (savedElement) savedElement.textContent = formatTime(estimateTimeSaved(todayStats.wordsProcessed) * 1000);
+      if (wordsToday) wordsToday.textContent = todayStats.wordsProcessed.toLocaleString();
+      if (timeToday) timeToday.textContent = formatTime(todayStats.activeTime);
+      if (timeSaved) timeSaved.textContent = formatTime(estimateTimeSaved(todayStats.wordsProcessed) * 1000);
     });
   }
 
@@ -467,10 +417,10 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     sendMessageToTab(tab.id, {action: 'getStatus'}, (response, error) => {
       if (error) {
         if (error.type === 'permission') {
-          status.innerHTML = '🔒 Access restricted<br><small>This page blocks extensions</small>';
+          status.innerHTML = 'Access restricted<br><small>This page blocks extensions</small>';
           status.style.background = 'rgba(244,67,54,0.2)';
         } else {
-          status.textContent = '🔄 Click to activate on this page';
+          status.textContent = 'Click to activate on this page';
           status.style.background = 'rgba(33,150,243,0.2)';
         }
         return;
@@ -478,10 +428,10 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       
       if (response && response.enabled) {
         updateUI(true);
-        status.textContent = '✅ Active - Reading at light speed!';
+        status.textContent = 'Active - Reading at light speed!';
         status.style.background = 'rgba(76,175,80,0.2)';
       } else {
-        status.textContent = '💫 Ready to boost your reading!';
+        status.textContent = 'Ready to boost your reading!';
         status.style.background = 'rgba(255,255,255,0.1)';
       }
     });
@@ -492,18 +442,15 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       toggleSwitch.classList.add('active');
       onText.style.opacity = '1';
       offText.style.opacity = '0.5';
-  toggleSwitch.setAttribute('aria-checked', 'true');
+      toggleSwitch.setAttribute('aria-checked', 'true');
     } else {
       toggleSwitch.classList.remove('active');
       onText.style.opacity = '0.5';
       offText.style.opacity = '1';
-  toggleSwitch.setAttribute('aria-checked', 'false');
+      toggleSwitch.setAttribute('aria-checked', 'false');
     }
   }
   
-  /**
-   * Load and display site-specific settings indicator
-   */
   function loadSiteSettingsUI(tab) {
     if (!tab || !tab.url || !siteSettings) return;
     
@@ -539,11 +486,11 @@ if (typeof document !== 'undefined' && document.addEventListener) {
             
             // Notify content script to reload settings
             chrome.tabs.sendMessage(tab.id, { action: 'reloadsettings' }, () => {
-              status.innerHTML = '✅ Reverted to global settings<br><small>Reload page to see changes</small>';
+              status.innerHTML = 'Reverted to global settings<br><small>Reload page to see changes</small>';
               status.style.background = 'rgba(76,175,80,0.2)';
             });
           } else {
-            status.innerHTML = '❌ Failed to clear site settings';
+            status.innerHTML = 'Failed to clear site settings';
             status.style.background = 'rgba(244,67,54,0.2)';
           }
         });
@@ -551,21 +498,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  function updateUI(enabled) {
-    if (enabled) {
-      toggleSwitch.classList.add('active');
-      onText.style.opacity = '1';
-      offText.style.opacity = '0.5';
-  toggleSwitch.setAttribute('aria-checked', 'true');
-    } else {
-      toggleSwitch.classList.remove('active');
-      onText.style.opacity = '0.5';
-      offText.style.opacity = '1';
-  toggleSwitch.setAttribute('aria-checked', 'false');
-    }
-  }
-
-  // Enhanced toggle with better feedback
+  // Toggle handler
   toggleSwitch.addEventListener('click', () => {
     if (toggleSwitch.style.pointerEvents === 'none') return;
     
@@ -579,10 +512,10 @@ if (typeof document !== 'undefined' && document.addEventListener) {
         
         if (error) {
           if (error.type === 'permission') {
-            status.innerHTML = '🔒 Cannot modify this page<br><small>Permission denied by browser</small>';
+            status.innerHTML = 'Cannot modify this page<br><small>Permission denied by browser</small>';
             status.style.background = 'rgba(244,67,54,0.2)';
           } else {
-            status.innerHTML = '❌ Activation failed<br><small>Try refreshing the page</small>';
+            status.innerHTML = 'Activation failed<br><small>Try refreshing the page</small>';
             status.style.background = 'rgba(244,67,54,0.2)';
           }
           return;
@@ -592,15 +525,15 @@ if (typeof document !== 'undefined' && document.addEventListener) {
           updateUI(response.enabled);
           
           if (response.enabled) {
-            status.textContent = '🚀 Bionic mode activated!';
+            status.textContent = 'Bionic mode activated!';
             status.style.background = 'rgba(76,175,80,0.2)';
             
             // Show processing info if available
             if (response.processedNodes) {
-              status.innerHTML = `🚀 Active!<br><small>Processing ${response.processedNodes} text sections</small>`;
+              status.innerHTML = `Active!<br><small>Processing ${response.processedNodes} text sections</small>`;
             }
           } else {
-            status.textContent = 'ℹ️ Normal reading restored';
+            status.textContent = 'Normal reading restored';
             status.style.background = 'rgba(33,150,243,0.2)';
           }
           
@@ -608,7 +541,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
           chrome.storage.sync.set({bionicEnabled: response.enabled});
           
         } else {
-          status.textContent = '❌ Something went wrong. Try again.';
+          status.textContent = 'Something went wrong. Try again.';
           status.style.background = 'rgba(244,67,54,0.2)';
         }
       });
@@ -640,7 +573,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   // Show keyboard shortcut hint
   setTimeout(() => {
     if (status.textContent.includes('Ready to boost')) {
-      status.innerHTML = '💫 Ready to boost your reading!<br><small>Click toggle or press Alt+B</small>';
+      status.innerHTML = 'Ready to boost your reading!<br><small>Click toggle or press Alt+B</small>';
     }
   }, 2000);
 
@@ -886,7 +819,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
         chrome.runtime.sendMessage({ action: 'setIntensity', intensity: defaultVal, coverage: Number(coverage ? coverage.value : 0.4) }, () => {});
       });
     });
-    status.textContent = '✨ Reset to default intensity';
+    status.textContent = 'Reset to default intensity';
   });
 
   // Help link (opens Terms file in a new tab if possible - elements already cached at top - Issue #22)
@@ -903,9 +836,5 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       chrome.runtime.openOptionsPage();
     });
   }
-});
-  // Expose test-hooks when required by Node tests
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { updateDemoHTML, ensureInjected };
-  }
+  });
 }

@@ -115,13 +115,18 @@ class SecurityValidator {
     }
     
     // Action validation
-    const allowedActions = ['toggle', 'getStatus', 'heartbeat', 'getStats', 'saveStats'];
-    if (!message.action || !allowedActions.includes(message.action)) {
+    const ALLOWED_ACTIONS = new Set([
+      'toggle', 'getstatus', 'heartbeat', 'getstats', 'savestats',
+      'setintensity', 'getsitesettings', 'setsitesettings',
+      'clearsitesettings', 'hascustomsettings', 'updateadvancedsettings'
+    ]);
+    
+    // Normalize action before validation
+    message.action = String(message.action).toLowerCase().trim();
+    
+    if (!message.action || !ALLOWED_ACTIONS.has(message.action)) {
       return { valid: false, error: 'Invalid or missing action' };
     }
-    
-    // Sanitize action
-    message.action = String(message.action).toLowerCase().trim();
     
     return { valid: true };
   }
@@ -374,28 +379,6 @@ function handleSecureMessage(message, sender, sendResponse) {
         }
         return true;
         
-      case 'setintensity':
-        const intensity = Number(message.intensity) || 0.5;
-        const tabId = sender?.tab?.id;
-        if (!tabId) {
-          sendResponse({ error: 'No tab context', code: ERROR_CODES.NO_TAB });
-          return false;
-        }
-        
-        // Forward intensity to content script in this tab
-        chrome.tabs.sendMessage(tabId, { 
-          action: 'setIntensity', 
-          intensity, 
-          coverage: message.coverage 
-        }, (resp) => {
-          if (chrome.runtime.lastError) {
-            sendResponse({ error: 'Failed to set intensity', code: ERROR_CODES.CONTENT_SCRIPT_ERROR });
-          } else {
-            sendResponse({ success: true, intensity });
-          }
-        });
-        return true;
-        
       default:
         sendResponse({ error: 'Unknown action', code: ERROR_CODES.UNKNOWN_ACTION });
     }
@@ -445,17 +428,9 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 });
 
 // Tab security monitoring
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    // Clear rate limits for completed page loads
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === 'complete') {
     rateLimitMap.delete(`tab_${tabId}`);
-    
-    // Log navigation to secure/insecure contexts
-    if (tab.url.startsWith('https://')) {
-      logger.debug(`[Security] Secure context loaded: ${new URL(tab.url).hostname}`);
-    } else if (tab.url.startsWith('http://')) {
-      logger.warn(`[Security] Insecure context loaded: ${new URL(tab.url).hostname}`);
-    }
   }
 });
 
@@ -501,85 +476,13 @@ chrome.runtime.onConnectExternal.addListener((port) => {
 
 // Security audit logging
 chrome.runtime.onStartup.addListener(() => {
-  logger.debug('[Security] Extension startup - security systems active');
-  
-  // Start rate limit cleanup
   startRateLimitCleanup();
-  
-  // Verify manifest permissions
-  const manifest = chrome.runtime.getManifest();
-  logger.debug('[Security] Active permissions:', manifest.permissions);
-  logger.debug('[Security] Host permissions:', manifest.host_permissions);
 });
 
 // Service worker lifecycle - cleanup on suspend
 chrome.runtime.onSuspend.addListener(() => {
   logger.debug('[Security] Service worker suspending - cleaning up resources');
   stopRateLimitCleanup();
-});
-
-logger.debug('[Security] Background service worker initialized with enterprise security');
-
-// Context menu setup for per-site control
-chrome.runtime.onInstalled.addListener(() => {
-  // Create context menu for enabling/disabling on specific site
-  chrome.contextMenus.create({
-    id: 'bionic-toggle-site',
-    title: 'Toggle Bionic Reader for this site',
-    contexts: ['action']
-  });
-  
-  chrome.contextMenus.create({
-    id: 'bionic-clear-site-settings',
-    title: 'Reset site settings to global',
-    contexts: ['action']
-  });
-  
-  logger.debug('[SiteSettings] Context menus created');
-});
-
-// Context menu click handler
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (!tab || !tab.url) return;
-  
-  if (info.menuItemId === 'bionic-toggle-site') {
-    try {
-      // Get current settings and toggle enabled state
-      const currentSettings = await SiteSettingsManager.getEffectiveSettings(tab.url);
-      const newEnabled = !currentSettings.enabled;
-      
-      await SiteSettingsManager.setSiteSettings(tab.url, { 
-        enabled: newEnabled,
-        intensity: currentSettings.intensity,
-        coverage: currentSettings.coverage
-      });
-      
-      // Notify content script to apply changes
-      chrome.tabs.sendMessage(tab.id, { 
-        action: 'toggle',
-        source: 'contextmenu',
-        siteSpecific: true
-      });
-      
-      logger.debug('[SiteSettings] Toggled site settings to', newEnabled, 'for', tab.url);
-    } catch (error) {
-      logger.error('[SiteSettings] Error toggling site settings:', error);
-    }
-  } else if (info.menuItemId === 'bionic-clear-site-settings') {
-    try {
-      await SiteSettingsManager.clearSiteSettings(tab.url);
-      
-      // Notify content script to reload global settings
-      chrome.tabs.sendMessage(tab.id, {
-        action: 'reloadsettings',
-        source: 'contextmenu'
-      });
-      
-      logger.debug('[SiteSettings] Cleared site settings for', tab.url);
-    } catch (error) {
-      logger.error('[SiteSettings] Error clearing site settings:', error);
-    }
-  }
 });
 
 // Handle keyboard commands from manifest

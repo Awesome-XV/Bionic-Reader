@@ -17,9 +17,7 @@ async function ensureInjected(tabId, attempts = 3, delayMs = 100) {
       if (i < attempts - 1) {
         // wait before retrying
         // small delay to allow transient failures to recover
-        // tests can keep this small
-        // eslint-disable-next-line no-await-in-loop
-  await sleep(delayMs);
+      await sleep(delayMs);
       }
     }
   }

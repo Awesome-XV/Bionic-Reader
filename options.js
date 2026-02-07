@@ -92,7 +92,6 @@ function init() {
  * Cache all DOM elements for performance
  */
 function cacheElements() {
-  // Input fields
   elements.maxNodesPerBatch = document.getElementById('maxNodesPerBatch');
   elements.maxTotalNodes = document.getElementById('maxTotalNodes');
   elements.batchDelay = document.getElementById('batchDelay');
@@ -101,7 +100,6 @@ function cacheElements() {
   elements.debugMode = document.getElementById('debugMode');
   elements.performanceMonitoring = document.getElementById('performanceMonitoring');
   
-  // Buttons
   elements.saveSettings = document.getElementById('saveSettings');
   elements.resetDefaults = document.getElementById('resetDefaults');
   elements.clearStorage = document.getElementById('clearStorage');
@@ -109,15 +107,12 @@ function cacheElements() {
   elements.exportAdvanced = document.getElementById('exportAdvanced');
   elements.importFile = document.getElementById('importFile');
   
-  // Status
   elements.statusAlert = document.getElementById('statusAlert');
   
-  // Stats
   elements.syncStorageUsed = document.getElementById('syncStorageUsed');
   elements.localStorageUsed = document.getElementById('localStorageUsed');
   elements.settingsCount = document.getElementById('settingsCount');
   
-  // Validation
   elements.skipSelectorsValidation = document.getElementById('skipSelectorsValidation');
 }
 
@@ -389,7 +384,7 @@ function handleSaveSettings() {
       }
     });
     
-    showAlert('✓ Settings saved successfully!', 'success');
+    showAlert('Settings saved successfully!', 'success');
     elements.saveSettings.textContent = originalText;
     elements.saveSettings.disabled = false;
     
@@ -430,7 +425,7 @@ function handleResetDefaults() {
       return;
     }
     
-    showAlert('✓ Settings reset to defaults', 'success');
+    showAlert('Settings reset to defaults', 'success');
     updateStorageInfo();
     console.log('[Options] Settings reset to defaults');
   });
@@ -462,7 +457,7 @@ function handleClearStorage() {
         return;
       }
       
-      showAlert('✓ All storage cleared. Reloading with defaults...', 'success');
+      showAlert('All storage cleared. Reloading with defaults...', 'success');
       
       // Reload after a delay
       setTimeout(() => {
@@ -545,7 +540,7 @@ function downloadSettings(data, filename) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   
-  showAlert('✓ Settings exported successfully', 'success');
+  showAlert('Settings exported successfully', 'success');
   console.log('[Options] Settings exported:', filename);
 }
 
@@ -647,18 +642,18 @@ function importSettings(data) {
     settingsToImport = data;
   }
   
-  // Filter and validate settings
-  const validatedSettings = {};
+  // Only import recognized setting keys
+  const KNOWN_KEYS = new Set([
+    ...Object.keys(DEFAULT_ADVANCED_SETTINGS),
+    'bionicIntensity', 'bionicCoverage', 'bionicEnabled', 'statsTrackingEnabled'
+  ]);
   
-  Object.keys(settingsToImport).forEach(key => {
-    // Only import known settings
-    if (DEFAULT_ADVANCED_SETTINGS.hasOwnProperty(key)) {
-      validatedSettings[key] = settingsToImport[key];
-    } else {
-      // Also import other non-advanced settings (intensity, enabled, etc.)
+  const validatedSettings = {};
+  for (const key of Object.keys(settingsToImport)) {
+    if (KNOWN_KEYS.has(key)) {
       validatedSettings[key] = settingsToImport[key];
     }
-  });
+  }
   
   // Save to storage
   chrome.storage.sync.set(validatedSettings, () => {
@@ -667,7 +662,7 @@ function importSettings(data) {
       return;
     }
     
-    showAlert('✓ Settings imported successfully. Reloading...', 'success');
+    showAlert('Settings imported successfully. Reloading...', 'success');
     
     // Reload UI after delay
     setTimeout(() => {

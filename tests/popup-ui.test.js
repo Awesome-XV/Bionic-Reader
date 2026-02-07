@@ -71,7 +71,7 @@ describe('popup UI behaviors', () => {
     jest.useFakeTimers();
     const elems = makeDomShim();
     // ensure status contains the ready phrase before timeout fires
-    elems.status.textContent = '💫 Ready to boost your reading!';
+    elems.status.textContent = 'Ready to boost your reading!';
 
     global.chrome = {
       storage: { sync: { get: (d, cb) => cb({ bionicIntensity: 0.5 }) } },

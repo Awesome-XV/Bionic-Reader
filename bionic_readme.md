@@ -1,8 +1,8 @@
-# ⚡ Bionic Reader Extension
+# Bionic Reader Extension
 
 Transform any webpage text into bionic reading format for faster, more efficient reading. This extension intelligently bolds the first few letters of each word, allowing your brain to auto-complete words and dramatically increase reading speed.
 
-## 🌟 Features
+## Features
 
 - **Smart Text Processing**: Intelligently bolds text based on word length
 - **Content-Aware**: Skips titles, navigation, code, and form elements
@@ -12,7 +12,7 @@ Transform any webpage text into bionic reading format for faster, more efficient
 - **Cross-Browser**: Works on Chrome, Edge, and other Chromium browsers
 - **Accessibility**: Respects user preferences for motion and contrast
 
-## 📦 Installation Instructions
+## Installation Instructions
 
 ### Step 1: Download the Extension Files or vist the edge extension store and search "Bionic reader"
 
@@ -30,7 +30,7 @@ Transform any webpage text into bionic reading format for faster, more efficient
 2. **Enable Developer Mode** by clicking the toggle in the top-right corner
 3. **Click "Load unpacked"** button
 4. **Select your folder** (`bionic-reader-extension`) and click "Select Folder"
-5. **You're done!** You'll see the ⚡ Bionic Reader icon in your toolbar
+5. **You're done!** You'll see the Bionic Reader icon in your toolbar
 
 ### Step 3: Install in Microsoft Edge
 
@@ -38,14 +38,14 @@ Transform any webpage text into bionic reading format for faster, more efficient
 2. **Enable Developer Mode** by clicking the toggle on the left sidebar
 3. **Click "Load unpacked"** button
 4. **Select your folder** (`bionic-reader-extension`) and click "Select Folder"
-5. **You're done!** The ⚡ icon will appear in your toolbar
+5. **You're done!** The icon will appear in your toolbar
 
-## 🚀 How to Use
+## How to Use
 
 ### Basic Usage
 
 1. **Navigate to any webpage** with text content (articles, blogs, news sites)
-2. **Click the ⚡ Bionic Reader icon** in your browser toolbar
+2. **Click the Bionic Reader icon** in your browser toolbar
 3. **Toggle the switch to "ON"** in the popup
 4. **Watch the magic happen!** Text transforms instantly
 5. **Toggle off anytime** to return to normal reading
@@ -63,22 +63,22 @@ Rea**ding th**is sen**tence req**uires yo**ur bra**in t**o pro**cess ea**ch com*
 ```
 *(Bold parts are what you'll see highlighted)*
 
-## 🎯 Smart Features Explained
+## Smart Features Explained
 
 ### What Gets Processed
-- ✅ **Article content** - Main reading text
-- ✅ **Blog posts** - Body paragraphs
-- ✅ **Comments** - User discussions
-- ✅ **Descriptions** - Product details, etc.
+- **Article content** - Main reading text
+- **Blog posts** - Body paragraphs
+- **Comments** - User discussions
+- **Descriptions** - Product details, etc.
 
 ### What Gets Skipped
-- ❌ **Titles & Headers** (H1, H2, H3, etc.) - Stay clean for scanning
-- ❌ **Navigation menus** - UI elements remain unchanged
-- ❌ **Code blocks** - Programming code stays readable
-- ❌ **Forms & inputs** - No interference with typing
-- ❌ **Buttons & labels** - UI text stays normal
+- **Titles & Headers** (H1, H2, H3, etc.) - Stay clean for scanning
+- **Navigation menus** - UI elements remain unchanged
+- **Code blocks** - Programming code stays readable
+- **Forms & inputs** - No interference with typing
+- **Buttons & labels** - UI text stays normal
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Extension Not Working?
 
@@ -104,7 +104,7 @@ Rea**ding th**is sen**tence req**uires yo**ur bra**in t**o pro**cess ea**ch com*
 2. **Some websites have custom styling** that might conflict
 3. **Check if you're in an iframe** - Some embedded content may not process
 
-## 🔒 Security Features
+## Security Features
 
 ### Multi-Layer Security Architecture
 - **Content Security Policy (CSP)** - Prevents script injection attacks
@@ -136,7 +136,7 @@ The extension includes built-in security monitoring that:
 - Validates all inter-component communications
 - Monitors for injection attempts and blocks them
 
-## 🛡️ Security Validation
+## Security Validation
 
 ### Automatic Threat Detection
 The extension automatically detects and blocks:
@@ -153,7 +153,7 @@ The extension automatically detects and blocks:
 - Uses secure DOM manipulation methods only
 - Implements defense-in-depth security principles
 
-## ⚙️ Technical Details
+## Technical Details
 
 ### File Structure
 ```
@@ -166,10 +166,10 @@ bionic-reader-extension/
 ```
 
 ### Browser Compatibility
-- ✅ **Chrome** 88+ (Manifest V3)
-- ✅ **Microsoft Edge** 88+
-- ✅ **Brave Browser**
-- ✅ **Other Chromium-based browsers**
+- **Chrome** 88+ (Manifest V3)
+- **Microsoft Edge** 88+
+- **Brave Browser**
+- **Other Chromium-based browsers**
 
 ### Performance & Security
 - **Minimal memory usage** - Only processes visible text with strict limits
@@ -179,7 +179,7 @@ bionic-reader-extension/
 - **Timeout Protection** - Processing limited to 5 seconds to prevent hangs
 - **Content Validation** - All text sanitized and validated before processing
 
-## 🆘 Support & Issues
+## Support & Issues
 
 ### Common Questions
 
@@ -214,7 +214,7 @@ If you encounter issues:
 4. **Note your browser version** and the specific website where it fails
 5. **If it still doesn't work make sure that you sumbit a issue on the github repo**
 
-## 🔄 Updates & Maintenance
+## Updates & Maintenance
 
 ### Updating the Extension
 
@@ -234,7 +234,7 @@ To completely remove the extension:
 
 ---
 
-## 📖 About Bionic Reading
+## About Bionic Reading
 
 Bionic Reading is a reading method that highlights the first few letters of words, allowing your brain to complete them automatically. This technique can:
 
@@ -244,4 +244,4 @@ Bionic Reading is a reading method that highlights the first few letters of word
 - **Help with dyslexia** and reading difficulties
 - **Make dense content** more digestible
 
-**Happy speed reading!** 🚀⚡
+**Happy speed reading!**

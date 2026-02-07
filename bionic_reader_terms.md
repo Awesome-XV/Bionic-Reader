@@ -32,19 +32,19 @@
 - Uses latest Chrome Extension APIs (scripting, storage, tabs)Reader is designed with **privacy-first principles**. We believe your reading activity is personal and private.
 
 ### What We DON'T Collect (Guaranteed):
-- ❌ Personal information or identity data
-- ❌ Browsing history or website URLs visited
-- ❌ Website content or text you read
-- ❌ User behavior, analytics, or telemetry
-- ❌ Passwords, credentials, or sensitive form data
-- ❌ IP addresses or device identifiers
-- ❌ Cookies or tracking pixels
-- ❌ ANY data transmission to external servers
+- Personal information or identity data
+- Browsing history or website URLs visited
+- Website content or text you read
+- User behavior, analytics, or telemetry
+- Passwords, credentials, or sensitive form data
+- IP addresses or device identifiers
+- Cookies or tracking pixels
+- ANY data transmission to external servers
 
 ### What We Store Locally (In Your Browser Only):
-- ✅ **Extension State:** Your on/off preference (stored in `chrome.storage.sync`)
-- ✅ **Intensity Setting:** Your preferred bolding ratio 0-100% (stored in `chrome.storage.sync`)
-- ✅ **Optional Statistics:** If enabled, total words processed and reading time (stored in `chrome.storage.local`)
+- **Extension State:** Your on/off preference (stored in `chrome.storage.sync`)
+- **Intensity Setting:** Your preferred bolding ratio 0-100% (stored in `chrome.storage.sync`)
+- **Optional Statistics:** If enabled, total words processed and reading time (stored in `chrome.storage.local`)
   - These stats NEVER leave your device
   - You can disable stats collection at any time
   - Clearing browser data removes all stats
@@ -301,14 +301,14 @@ These Terms constitute the entire agreement between you and us regarding the Ext
 - It's free, open-source, and privacy-focused
 
 **Key Points:**
-- ✅ **100% Privacy-Friendly:** Absolutely zero data collection or tracking
-- ✅ **Local Processing:** Everything happens on your device
-- ✅ **User Control:** You're always in complete control
-- ✅ **Free & Open Source:** No hidden costs, subscriptions, or ads
-- ✅ **Transparent:** Full source code available on GitHub
-- ✅ **Customizable:** Adjust intensity to match your reading preference
-- ✅ **Keyboard Shortcut:** Alt+Shift+B to toggle on any page
-- ✅ **Optional Stats:** Track your reading progress (locally only)
+- **100% Privacy-Friendly:** Absolutely zero data collection or tracking
+- **Local Processing:** Everything happens on your device
+- **User Control:** You're always in complete control
+- **Free & Open Source:** No hidden costs, subscriptions, or ads
+- **Transparent:** Full source code available on GitHub
+- **Customizable:** Adjust intensity to match your reading preference
+- **Keyboard Shortcut:** Alt+Shift+B to toggle on any page
+- **Optional Stats:** Track your reading progress (locally only)
 
 **Technical Highlights:**
 - Manifest V3 architecture (latest security standards)
