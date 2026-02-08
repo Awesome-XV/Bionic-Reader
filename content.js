@@ -78,13 +78,11 @@ const CONFIG = {
   MIN_BOLD_RATIO: 0.05,                // Never bold less than 5% of word
   MAX_BOLD_RATIO: 0.95,                // Never bold more than 95% of word
   
-  // Dynamic Content Observer Timings (Issue #17)
   OBSERVER_MIN_DELAY: 300,             // Minimum delay before processing new nodes (ms)
   OBSERVER_MAX_DELAY: 1500,            // Maximum delay before processing new nodes (ms)
   OBSERVER_DELAY_PER_NODE: 30,         // Additional delay per new node (ms)
   OBSERVER_CONTINUOUS_READING_GAP: 30000,  // Gap to consider reading continuous (ms)
   
-  // Performance Monitoring (Issue #28)
   ENABLE_PERFORMANCE_MONITORING: DEBUG_MODE,  // Track processing performance
   PERFORMANCE_LOG_THRESHOLD: 100,      // Only log operations taking > 100ms
   
@@ -93,7 +91,6 @@ const CONFIG = {
   ENABLE_VOWEL_OPTIMIZATION: false // Disabled for more predictable results
 };
 
-// Intensity (0..1) controls how aggressive bolding is; default 0.5 (Issue #19: Renamed to camelCase)
 let bionicIntensity = 0.5;
 // Coverage (0..1) controls bolding visual weight (how heavy the bold looks)
 let bionicCoverage = 0.4;
@@ -110,7 +107,6 @@ let processingAbortController = null;
 let usingSiteSpecificSettings = false;
 let currentSiteOrigin = null;
 
-// Performance: Function word lookup cache (Issue #21)
 const functionWordCache = new Map();
 
 /**
@@ -156,7 +152,7 @@ function trackWordsProcessed(text) {
     sessionStats.startTime = now;
   }
   
-  // If less than 30 seconds since last activity, count as continuous reading (Issue #17)
+  // If less than 30 seconds since last activity, count as continuous reading
   if (now - sessionStats.lastActiveTime < CONFIG.OBSERVER_CONTINUOUS_READING_GAP) {
     sessionStats.activeTime += (now - sessionStats.lastActiveTime);
   }
@@ -252,14 +248,14 @@ const FUNCTION_WORDS = new Set([
 function isFunctionWord(word) {
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, '');
   
-  // Check cache first (Issue #21: memoization for performance)
+  // Check cache first for performance
   if (functionWordCache.has(cleanWord)) {
     return functionWordCache.get(cleanWord);
   }
   
   const result = FUNCTION_WORDS.has(cleanWord);
   
-  // Cache result (limit size to prevent memory issues)
+  // Cache result for future lookups, but limit cache size to prevent memory bloat
   if (functionWordCache.size < 10000) {
     functionWordCache.set(cleanWord, result);
   }
@@ -314,7 +310,7 @@ function calculateBionicBoldPositions(word) {
   const letterString = letters.join('');
   const isFunction = isFunctionWord(word);
   
-  // Base ratio depends on word length and type (Issue #13: extracted magic numbers to CONFIG)
+  // Base ratio depends on word length and type
   const baseRatio = N <= CONFIG.SMALL_WORD_THRESHOLD 
     ? CONFIG.SMALL_WORD_RATIO 
     : (isFunction ? CONFIG.FUNCTION_WORD_RATIO : CONFIG.CONTENT_WORD_RATIO);
@@ -614,7 +610,7 @@ async function processTextNodes(element) {
   
   isProcessing = true;
   
-  // Performance monitoring (Issue #28)
+  // Performance monitoring stuff
   if (CONFIG.ENABLE_PERFORMANCE_MONITORING) {
     performance.mark('bionic-process-start');
   }
@@ -677,7 +673,7 @@ async function processTextNodes(element) {
     isProcessing = false;
     processingAbortController = null;
     
-    // Performance monitoring (Issue #28)
+    // More performance monitoring stuff
     if (CONFIG.ENABLE_PERFORMANCE_MONITORING) {
       performance.mark('bionic-process-end');
       performance.measure(
@@ -789,11 +785,9 @@ function disableBionic() {
   }
   
   isProcessing = false;
-  
-  // Stop observing dynamic content and clear timeouts
   stopObserver();
   
-  // Clear function word cache to free memory (Issue #21)
+  // Clear function word cache to free memory
   functionWordCache.clear();
   
   // Save final session stats
@@ -1177,7 +1171,6 @@ function startObserver() {
     if (hasNewText && newNodes.length > 0) {
       clearTimeout(mutationObserver.timeout);
       
-      // Calculate adaptive delay based on number of nodes (Issue #17: extracted to CONFIG)
       const delay = Math.min(
         CONFIG.OBSERVER_MAX_DELAY,
         Math.max(CONFIG.OBSERVER_MIN_DELAY, newNodes.length * CONFIG.OBSERVER_DELAY_PER_NODE)

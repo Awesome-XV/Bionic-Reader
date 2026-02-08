@@ -23,6 +23,17 @@ Additional features include:
 - Performance Optimized: Handles dynamic content without lag
 - Cross-Browser: Works on Chrome, Edge, and other Chromium browsers
 - Accessibility: Respects user preferences for motion and contrast
+- **NEW**: Three themes - Light, Dark, and AI Theme with emojis
+
+## Themes
+
+Choose from three professionally designed themes to match your reading environment:
+
+- **AI Theme** (Default): Vibrant gradient design with playful emojis for an engaging experience
+- **Light Theme**: Clean, professional look perfect for daytime reading with high contrast
+- **Dark Theme**: Easy on the eyes for night-time use with reduced eye strain
+
+Switch themes instantly from the dropdown in the top-right corner. Your preference is saved and syncs across devices.
 
 ## Screenshots
 

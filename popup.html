@@ -1,15 +1,64 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
+    :root {
+      --bg-primary: #667eea;
+      --bg-secondary: #764ba2;
+      --text-primary: white;
+      --text-secondary: rgba(255,255,255,0.8);
+      --surface: rgba(255,255,255,0.1);
+      --surface-hover: rgba(255,255,255,0.15);
+      --border: rgba(255,255,255,0.2);
+      --shadow: rgba(0,0,0,0.1);
+    }
+
+    body.theme-light {
+      --bg-primary: #f8f9fa;
+      --bg-secondary: #e9ecef;
+      --text-primary: #212529;
+      --text-secondary: #6c757d;
+      --surface: #ffffff;
+      --surface-hover: #f1f3f5;
+      --border: #dee2e6;
+      --shadow: rgba(0,0,0,0.08);
+    }
+
+    body.theme-dark {
+      --bg-primary: #1a1a2e;
+      --bg-secondary: #16213e;
+      --text-primary: #eaeaea;
+      --text-secondary: #a0a0a0;
+      --surface: rgba(255,255,255,0.05);
+      --surface-hover: rgba(255,255,255,0.08);
+      --border: rgba(255,255,255,0.1);
+      --shadow: rgba(0,0,0,0.3);
+    }
+
+    body.theme-ai {
+      --bg-primary: #667eea;
+      --bg-secondary: #764ba2;
+      --text-primary: white;
+      --text-secondary: rgba(255,255,255,0.8);
+      --surface: rgba(255,255,255,0.1);
+      --surface-hover: rgba(255,255,255,0.15);
+      --border: rgba(255,255,255,0.2);
+      --shadow: rgba(0,0,0,0.1);
+    }
+
     body {
       width: 300px;
       padding: 20px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
       margin: 0;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    body.theme-light {
+      background: var(--bg-primary);
     }
     
     .header {
@@ -29,7 +78,158 @@
       font-size: 14px;
     }
 
-    /* Screen-reader only helper */
+    .theme-switcher {
+      text-align: center;
+      margin-top: 12px;
+      margin-bottom: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .theme-switcher label {
+      font-size: 12px;
+      opacity: 0.85;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .theme-switcher select {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+      color: white;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .theme-switcher select:hover {
+      background: rgba(0,0,0,0.3);
+    }
+
+    .theme-switcher select:focus {
+      outline: 2px solid var(--border);
+      outline-offset: 1px;
+    }
+
+    body.theme-light .theme-switcher select {
+      background: var(--surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px var(--shadow);
+    }
+
+    body.theme-dark .theme-switcher select {
+      background: rgba(30,30,60,0.95);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    body.theme-dark .theme-switcher select option {
+      background: #1a1a2e;
+      color: white;
+    }
+
+    body.theme-light .toggle-switch {
+      background: #dee2e6;
+    }
+
+    body.theme-light .toggle-switch.active {
+      background: #667eea;
+    }
+
+    body.theme-light button,
+    body.theme-light input[type="checkbox"],
+    body.theme-light input[type="range"] {
+      cursor: pointer;
+    }
+
+    body.theme-light .status {
+      background: var(--surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    body.theme-light .demo,
+    body.theme-light .stats,
+    body.theme-light #siteSettings {
+      background: var(--surface) !important;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px var(--shadow);
+    }
+
+    body.theme-light button {
+      background: var(--surface) !important;
+      color: var(--text-primary) !important;
+      border: 1px solid var(--border) !important;
+    }
+
+    body.theme-light button:hover {
+      background: var(--surface-hover) !important;
+    }
+
+    body.theme-light a {
+      color: #667eea !important;
+    }
+
+    body.theme-light .demo-bold {
+      color: #667eea;
+    }
+
+    body.theme-light input[type="range"]::-webkit-slider-runnable-track {
+      background: linear-gradient(to right, #667eea 0%, #667eea var(--value, 50%), #dee2e6 var(--value, 50%), #dee2e6 100%);
+    }
+
+    body.theme-dark button,
+    body.theme-dark input[type="checkbox"],
+    body.theme-dark input[type="range"] {
+      cursor: pointer;
+    }
+
+    body.theme-dark .demo-bold {
+      color: #667eea;
+    }
+
+    body.theme-dark .toggle-switch {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid var(--border);
+    }
+
+    body.theme-dark .toggle-switch.active {
+      background: #667eea;
+    body.theme-light button {
+      background: var(--surface) !important;
+      color: var(--text-primary) !important;
+      border: 1px solid var(--border) !important;
+    }
+
+    body.theme-light button:hover {
+      background: var(--surface-hover) !important;
+    }
+
+    body.theme-dark button {
+      background: rgba(255,255,255,0.08) !important;
+      color: white !important;
+      border: 1px solid var(--border) !important;
+    }
+
+    body.theme-dark button:hover {
+      background: rgba(255,255,255,0.12) !important;
+    }
+
+    }
+
+    .emoji {
+      display: none;
+    }
+
+    body.theme-ai .emoji {
+      display: inline;
+    }
+
     .sr-only {
       position: absolute !important;
       height: 1px; width: 1px;
@@ -144,7 +344,6 @@
       margin: 4px 0;
     }
 
-    /* Custom checkbox styling for Track progress */
     input[type="checkbox"] {
       appearance: none;
       -webkit-appearance: none;
@@ -178,7 +377,6 @@
       outline-offset: 2px;
     }
 
-    /* Blue slider styling with progress fill */
     input[type="range"] {
       appearance: none;
       -webkit-appearance: none;
@@ -190,7 +388,6 @@
       position: relative;
     }
     
-    /* WebKit progress fill */
     input[type="range"]::-webkit-slider-runnable-track {
       height: 6px;
       border-radius: 3px;
@@ -215,7 +412,6 @@
       transform: scale(1.1);
     }
     
-    /* Firefox styling */
     input[type="range"]::-moz-range-track {
       height: 6px;
       border-radius: 3px;
@@ -246,15 +442,14 @@
       transform: scale(1.1);
     }
 
-    /* Respect user's reduced motion preference */
     @media (prefers-reduced-motion: reduce) {
       .toggle-switch, .toggle-slider, .demo, .status, input[type="checkbox"], input[type="range"]::-webkit-slider-thumb, input[type="range"]::-moz-range-thumb { transition: none !important; }
     }
   </style>
 </head>
-<body>
+<body class="theme-ai">
   <div class="header">
-    <h1>Bionic Reader</h1>
+    <h1><span class="emoji">⚡</span> Bionic Reader</h1>
     <p>Read faster with gentle highlights</p>
   </div>
   
@@ -275,7 +470,7 @@
   <!-- Site-specific settings indicator -->
   <div id="siteSettings" style="display: none; background: rgba(255,255,255,0.15); border-radius: 6px; padding: 10px; margin: 10px 0; font-size: 12px;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
-      <span><span id="siteName">This site</span> settings</span>
+      <span><span class="emoji">🌐 </span><span id="siteName">This site</span> settings</span>
       <button id="clearSiteBtn" style="padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: white; cursor: pointer; font-size: 11px;">Use global</button>
     </div>
     <div style="margin-top: 6px; opacity: 0.8; font-size: 11px;">
@@ -285,7 +480,7 @@
   
   <div class="stats" id="stats" style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin: 15px 0; font-size: 13px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-      <div style="font-weight: 600; opacity: 0.9;">Reading Statistics</div>
+      <div style="font-weight: 600; opacity: 0.9;"><span class="emoji">📊 </span>Reading Statistics</div>
       <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
         <input type="checkbox" id="statsEnabled" style="margin: 0;">
         <span>Track progress</span>
@@ -313,7 +508,7 @@
   </div>
   
   <div class="tips">
-    <h4>Smart Features:</h4>
+    <h4><span class="emoji">💡 </span>Smart Features:</h4>
     <ul>
       <li>Skips titles & headings</li>
       <li>Ignores code & forms</li>
@@ -322,9 +517,19 @@
     </ul>
   </div>
 
+  <div class="theme-switcher">
+    <label for="themeSelector">Theme</label>
+    <select id="themeSelector" aria-label="Select theme">
+      <option value="ai">AI Theme</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+  </div>
+
   <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
     <button id="resetBtn" style="flex:1;min-width:120px;padding:8px;border-radius:6px;border:none;background:rgba(255,255,255,0.12);color:white;cursor:pointer;font-weight:500;">Reset to default</button>
     <button id="optionsBtn" style="flex:1;min-width:140px;padding:8px 12px;border-radius:6px;border:none;background:rgba(255,255,255,0.15);color:white;cursor:pointer;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;" title="Advanced Settings">
+      <span class="emoji" style="font-size:16px;line-height:1;">⚙️</span>
       <span style="line-height:1;">Advanced</span>
     </button>
   </div>

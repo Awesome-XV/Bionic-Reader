@@ -40,7 +40,6 @@ const VALIDATION_RULES = {
  * UI elements cache
  */
 const elements = {
-  // Input fields
   maxNodesPerBatch: null,
   maxTotalNodes: null,
   batchDelay: null,
@@ -738,12 +737,21 @@ function debounce(func, wait) {
   };
 }
 
-// Initialize when DOM is ready
+function loadTheme() {
+  chrome.storage.sync.get({ popupTheme: 'ai' }, (result) => {
+    const theme = result.popupTheme || 'ai';
+    document.body.className = `theme-${theme}`;
+  });
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => {
+    loadTheme();
+    init();
+  });
 } else {
-  // Don't auto-init during tests
   if (typeof jest === 'undefined') {
+    loadTheme();
     init();
   }
 }

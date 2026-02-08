@@ -1,12 +1,7 @@
 'use strict';
 
-// Debug mode flag - set to false for production
 const DEBUG_MODE = false;
 
-/**
- * Centralized logger utility
- * Uses environment-aware logging (debug/info disabled in production)
- */
 const logger = {
   debug: DEBUG_MODE ? console.log.bind(console) : () => {},
   info: DEBUG_MODE ? console.info.bind(console) : () => {},
@@ -14,16 +9,6 @@ const logger = {
   error: console.error.bind(console)
 };
 
-/**
- * Debounce utility function to limit function execution frequency.
- * 
- * @param {Function} func - Function to debounce
- * @param {number} wait - Milliseconds to wait before executing
- * @returns {Function} Debounced function
- * 
- * @example
- * const debouncedUpdate = debounce(updateUI, 250);
- */
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
@@ -36,17 +21,8 @@ function debounce(func, wait) {
   };
 }
 
-// Demo text used in popup preview
 const DEMO_SAMPLE = 'Reading this demo text normally.';
 
-/**
- * Generates bionic-formatted HTML for demo text based on intensity.
- * 
- * @param {string} text - Text to transform
- * @param {number} intensity - Bold intensity (0.0 to 1.0)
- * @param {number} [coverage] - Visual weight/font-weight (0.0 to 1.0, optional)
- * @returns {string} HTML string with bionic formatting
- */
 function updateDemoHTML(text, intensity = 0.5, coverage = undefined) {
   if (!text) return '';
   
@@ -84,19 +60,14 @@ function updateDemoHTML(text, intensity = 0.5, coverage = undefined) {
   }).join('');
 }
 
-// Alias for backward compatibility with coverage-specific callers
 const updateDemoHTMLWithCoverage = updateDemoHTML;
-// When running in a test/Node environment, avoid running DOM code on require.
-// Also try to reuse the shared `ensureInjected` helper from `src/popup-inject.js`
+
 let importedEnsureInjected = null;
 try {
-  // require relative to this file
   // eslint-disable-next-line global-require, import/no-unresolved
   importedEnsureInjected = require('./src/popup-inject').ensureInjected;
-} catch (err) {
-  // not available in browser or when not running tests; fall back to local implementation
-}
-// Top-level ensureInjected used by tests or popup UI. Prefer imported helper when available.
+} catch (err) {}
+
 async function ensureInjected(tabId, attempts = 3, delayMs = 100) {
   if (importedEnsureInjected) return importedEnsureInjected(tabId, attempts, delayMs);
   for (let i = 0; i < attempts; i++) {
@@ -107,7 +78,6 @@ async function ensureInjected(tabId, attempts = 3, delayMs = 100) {
       return true;
     } catch (err) {
       if (i < attempts - 1) {
-        // short backoff
         // eslint-disable-next-line no-await-in-loop
         await new Promise(r => setTimeout(r, delayMs * (i + 1)));
       }
@@ -115,7 +85,6 @@ async function ensureInjected(tabId, attempts = 3, delayMs = 100) {
   }
   return false;
 }
-// Export for tests when required by Node immediately (ensureInjected is available on require)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { updateDemoHTML, ensureInjected };
 }
@@ -123,7 +92,6 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('DOMContentLoaded', () => {
   
-  // Cache all DOM elements (Issue #22: performance optimization)
   const elements = {
     toggleSwitch: document.getElementById('toggleSwitch'),
     onText: document.getElementById('onText'),
@@ -145,10 +113,40 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     helpLink: document.getElementById('helpLink'),
     siteSettings: document.getElementById('siteSettings'),
     siteName: document.getElementById('siteName'),
-    clearSiteBtn: document.getElementById('clearSiteBtn')
+    clearSiteBtn: document.getElementById('clearSiteBtn'),
+    themeSelector: document.getElementById('themeSelector')
   };
   
-  // Destructure for backward compatibility (Issue #22: maintain existing code)
+  function loadTheme() {
+    chrome.storage.sync.get({ popupTheme: 'ai' }, (result) => {
+      const theme = result.popupTheme || 'ai';
+      applyTheme(theme);
+      if (elements.themeSelector) {
+        elements.themeSelector.value = theme;
+      }
+    });
+  }
+
+  function applyTheme(theme) {
+    document.body.className = `theme-${theme}`;
+  }
+
+  function saveTheme(theme) {
+    chrome.storage.sync.set({ popupTheme: theme }, () => {
+      logger.debug('[Theme] Saved theme:', theme);
+    });
+  }
+
+  loadTheme();
+
+  if (elements.themeSelector) {
+    elements.themeSelector.addEventListener('change', (e) => {
+      const theme = e.target.value;
+      applyTheme(theme);
+      saveTheme(theme);
+    });
+  }
+  
   const {
     toggleSwitch, onText, offText, status, intensity, intensityValue,
     coverage, coverageValue, demoBionic, demoNormal, statsEnabled,
@@ -156,7 +154,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     resetBtn, helpLink, siteSettings, siteName, clearSiteBtn
   } = elements;
 
-  // Enhanced ARIA accessibility attributes (Issue #20)
   if (toggleSwitch) {
     toggleSwitch.setAttribute('role', 'switch');
     toggleSwitch.setAttribute('aria-checked', 'false');
@@ -175,7 +172,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     demoBionic.setAttribute('aria-label', 'Bionic reading preview');
   }
 
-  // Check if we're in a restricted context
   function isRestrictedContext(url) {
     if (!url) return true;
     
@@ -192,7 +188,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       'devtools://'
     ];
     
-    // Check for reader mode URLs (Edge's immersive reader and other reader modes)
     const readerModePatterns = [
       'read:',
       'reader:',
@@ -206,7 +201,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     
     const lowerUrl = url.toLowerCase();
     
-    // Check for Edge's specific reader mode URL pattern
     if (lowerUrl.includes('microsoft.com') && lowerUrl.includes('reader')) {
       return true;
     }
@@ -215,7 +209,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
            readerModePatterns.some(pattern => lowerUrl.includes(pattern));
   }
 
-  // Enhanced tab access with better error handling
   function safeTabAccess(callback) {
     try {
       chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
@@ -234,14 +227,12 @@ if (typeof document !== 'undefined' && document.addEventListener) {
         
         const tab = tabs[0];
         
-        // Check for restricted contexts
         if (isRestrictedContext(tab.url)) {
           status.textContent = 'Not available in reader mode/browser pages';
           status.style.background = 'rgba(255,193,7,0.2)';
           toggleSwitch.style.opacity = '0.5';
           toggleSwitch.style.pointerEvents = 'none';
           
-          // Add helpful tip for reader mode
           if (tab.url && (tab.url.includes('read') || tab.url.includes('reader'))) {
             status.innerHTML = 'Reader mode detected<br><small>Try using Bionic Reader on the original page</small>';
           }
@@ -257,25 +248,20 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }
   }
 
-  // Enhanced content script injection with synchronization and verification
   function injectContentScript(tabId, callback) {
     status.textContent = 'Setting up Bionic Reader...';
     
-    // Step 1: Inject CSS
     chrome.scripting.insertCSS({
       target: { tabId: tabId, allFrames: true },
       files: ['bionic.css']
     }).then(() => {
-      // Step 2: Wait for CSS to be applied (prevents FOUC)
       return new Promise(resolve => setTimeout(resolve, 50));
     }).then(() => {
-      // Step 3: Inject JavaScript
       return chrome.scripting.executeScript({
         target: { tabId: tabId, allFrames: true },
         files: ['content.js']
       });
     }).then(() => {
-      // Step 4: Verify content script is ready
       return new Promise((resolve, reject) => {
         const maxRetries = 3;
         let retries = 0;
@@ -302,7 +288,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }).catch((error) => {
       logger.error('Injection failed:', error);
       
-      // Check if it's a permission issue
       if (error.message.includes('Cannot access') || error.message.includes('permission')) {
         status.innerHTML = 'Permission denied<br><small>This page blocks extensions</small>';
         status.style.background = 'rgba(244,67,54,0.2)';
@@ -321,22 +306,17 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Ensure content script + CSS are injected into the tab; uses top-level ensureInjected
-
-  // Enhanced message sending with better error handling
   function sendMessageToTab(tabId, message, callback) {
     chrome.tabs.sendMessage(tabId, message, { frameId: 0 }, (response) => {
       if (chrome.runtime.lastError) {
         const error = chrome.runtime.lastError.message;
         logger.debug('Message error:', error);
         
-        // Check if content script needs to be injected
         if (error.includes('Receiving end does not exist') || 
             error.includes('Could not establish connection')) {
           
           injectContentScript(tabId, (success) => {
             if (success) {
-              // Retry the message after injection
               setTimeout(() => {
                 chrome.tabs.sendMessage(tabId, message, { frameId: 0 }, (retryResponse) => {
                   if (chrome.runtime.lastError) {
@@ -409,9 +389,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Get current status with enhanced error handling
   safeTabAccess((tab) => {
-    // Load site-specific settings indicator
     loadSiteSettingsUI(tab);
     
     sendMessageToTab(tab.id, {action: 'getStatus'}, (response, error) => {
@@ -458,14 +436,11 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       const url = new URL(tab.url);
       const hostname = url.hostname;
       
-      // Check if site has custom settings
       chrome.runtime.sendMessage({ action: 'hascustomsettings' }, (response) => {
         if (response && response.success && response.hasCustomSettings) {
-          // Show site settings indicator
           if (siteSettings) siteSettings.style.display = 'block';
           if (siteName) siteName.textContent = hostname;
         } else {
-          // Hide site settings indicator
           if (siteSettings) siteSettings.style.display = 'none';
         }
       });
@@ -475,16 +450,13 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }
   }
   
-  // Clear site settings button handler
   if (clearSiteBtn) {
     clearSiteBtn.addEventListener('click', () => {
       safeTabAccess((tab) => {
         chrome.runtime.sendMessage({ action: 'clearsitesettings' }, (response) => {
           if (response && response.success) {
-            // Hide the site settings indicator
             if (siteSettings) siteSettings.style.display = 'none';
             
-            // Notify content script to reload settings
             chrome.tabs.sendMessage(tab.id, { action: 'reloadsettings' }, () => {
               status.innerHTML = 'Reverted to global settings<br><small>Reload page to see changes</small>';
               status.style.background = 'rgba(76,175,80,0.2)';
@@ -498,16 +470,13 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Toggle handler
   toggleSwitch.addEventListener('click', () => {
     if (toggleSwitch.style.pointerEvents === 'none') return;
     
-    // Disable the toggle temporarily to prevent double-clicks
     toggleSwitch.style.pointerEvents = 'none';
     
     safeTabAccess((tab) => {
       sendMessageToTab(tab.id, {action: 'toggle'}, (response, error) => {
-        // Re-enable the toggle
         toggleSwitch.style.pointerEvents = 'auto';
         
         if (error) {
@@ -528,7 +497,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
             status.textContent = 'Bionic mode activated!';
             status.style.background = 'rgba(76,175,80,0.2)';
             
-            // Show processing info if available
             if (response.processedNodes) {
               status.innerHTML = `Active!<br><small>Processing ${response.processedNodes} text sections</small>`;
             }
@@ -537,7 +505,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
             status.style.background = 'rgba(33,150,243,0.2)';
           }
           
-          // Save state
           chrome.storage.sync.set({bionicEnabled: response.enabled});
           
         } else {
@@ -548,21 +515,17 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   });
   
-  // Add keyboard shortcut (Alt+B)
   document.addEventListener('keydown', (e) => {
-    // Alt+B hint kept for quick access in popup
     if (e.altKey && e.key.toLowerCase() === 'b') {
       e.preventDefault();
       toggleSwitch.click();
     }
-    // Allow Enter/Space to toggle when the switch is focused
     if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === toggleSwitch) {
       e.preventDefault();
       toggleSwitch.click();
     }
   });
 
-  // Also handle keydown directly on the switch for robustness
   toggleSwitch.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -577,8 +540,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }
   }, 2000);
 
-  // Intensity slider wiring (elements already cached at top - Issue #22)
-  // Enhanced ARIA attributes for the range control (Issue #20)
   intensity.setAttribute('role', 'slider');
   intensity.setAttribute('aria-valuemin', '0');
   intensity.setAttribute('aria-valuemax', '1');
@@ -586,7 +547,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   intensity.setAttribute('aria-valuetext', `${Math.round(intensity.value * 100)} percent`);
   intensity.setAttribute('aria-label', 'Text highlight intensity percentage');
   
-  // Coverage slider ARIA (Issue #20)
   if (coverage) {
     coverage.setAttribute('role', 'slider');
     coverage.setAttribute('aria-valuemin', '0');
@@ -599,7 +559,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   function setIntensityLabel(v) {
     const pct = Math.round(v * 100);
     intensityValue.textContent = `${pct}%`;
-    // Update ARIA current value for screen readers (Issue #20)
     if (intensity) {
       intensity.setAttribute('aria-valuenow', String(v));
       intensity.setAttribute('aria-valuetext', `${pct} percent`);
@@ -609,34 +568,28 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   function setCoverageLabel(v) {
     const pct = Math.round(v * 100);
     if (coverageValue) coverageValue.textContent = `${pct}%`;
-    // Update ARIA for screen readers (Issue #20)
     if (coverage) {
       coverage.setAttribute('aria-valuenow', String(v));
       coverage.setAttribute('aria-valuetext', `${pct} percent`);
     }
   }
 
-  // Demo element wiring (elements already cached at top - Issue #22)
   if (demoNormal) demoNormal.textContent = 'Normal: ' + DEMO_SAMPLE;
-  // Use stored coverage when rendering demo preview if available
   if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, intensity.value || 0.5, coverage ? coverage.value : 0.4);
 
-  // Throttled demo updater using requestAnimationFrame (with setTimeout fallback)
   const _requestRaf = (typeof requestAnimationFrame !== 'undefined') ? requestAnimationFrame : (cb) => setTimeout(cb, 16);
   const _cancelRaf = (typeof cancelAnimationFrame !== 'undefined') ? cancelAnimationFrame : (id) => clearTimeout(id);
   let _demoRafId = null;
   let _pendingDemoValue = null;
-  // Respect prefers-reduced-motion: avoid scheduling RAF-driven updates if user prefers reduced motion
   const PREFERS_REDUCED_MOTION = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   function scheduleDemoUpdate(v) {
     _pendingDemoValue = v;
     if (PREFERS_REDUCED_MOTION) {
-      // Apply immediately without animation/RAF
       if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, _pendingDemoValue || 0.5, coverage ? coverage.value : 0.4);
       _pendingDemoValue = null;
       return;
     }
-    if (_demoRafId != null) return; // already scheduled
+    if (_demoRafId != null) return;
     _demoRafId = _requestRaf(() => {
       try {
         if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTML(DEMO_SAMPLE, _pendingDemoValue || 0.5, coverage ? coverage.value : 0.4);
@@ -647,9 +600,6 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Statistics toggle handling (elements already cached at top - Issue #22)
-  
-  // Load saved settings including statistics preference
   chrome.storage.sync.get({ 
     bionicIntensity: 0.5, 
     bionicCoverage: 0.4, 
@@ -661,7 +611,7 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     
     intensity.value = v;
     setIntensityLabel(v);
-    updateSliderProgress(v); // Update slider progress on load
+    updateSliderProgress(v);
     
     if (coverage) {
       coverage.value = c;
@@ -673,20 +623,16 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       loadAndDisplayStats(statsTracking);
     }
     
-    // Inform content script of current intensity/coverage for active tab
     safeTabAccess((tab) => {
       chrome.runtime.sendMessage({ 
         action: 'setIntensity', 
         intensity: v, 
         coverage: c,
         statsEnabled: statsTracking 
-      }, (resp) => {
-        // ignore errors - content script may not be injected yet
-      });
+      }, (resp) => {});
     });
   });
 
-  // Statistics toggle event listener
   if (statsEnabled) {
     statsEnabled.addEventListener('change', (e) => {
       const enabled = e.target.checked;
@@ -694,19 +640,15 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       
       loadAndDisplayStats(enabled);
       
-      // Notify content script about stats preference change
       safeTabAccess((tab) => {
         chrome.tabs.sendMessage(tab.id, { 
           action: 'setStatsEnabled', 
           statsEnabled: enabled 
-        }, () => {
-          // Ignore errors - content script may not be injected
-        });
+        }, () => {});
       });
     });
   }
 
-  // Refresh stats every 30 seconds if popup is open and stats are enabled
   if (chrome?.storage?.local) {
     setInterval(() => {
       if (statsEnabled && statsEnabled.checked) {
@@ -715,35 +657,25 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     }, 30000);
   }
 
-  /**
-   * Updates the visual progress fill of the intensity slider
-   * @param {number} value - Slider value (0.0 to 1.0)
-   */
   function updateSliderProgress(value) {
     const percentage = value * 100;
     intensity.style.setProperty('--value', `${percentage}%`);
   }
 
-  // Intensity slider - only update visuals during drag, demo when stopped
   intensity.addEventListener('input', (e) => {
     const v = Number(e.target.value);
     setIntensityLabel(v);
     updateSliderProgress(v);
-    // No demo update during dragging - only visual feedback
   });
 
-  // Debounced save to storage and content script (with per-site support)
   const debouncedIntensitySave = debounce((value) => {
-    // Save to global settings
     chrome.storage.sync.set({ bionicIntensity: value });
     
     safeTabAccess((tab) => {
       if (!tab || !tab.id) return;
       
-      // Check if site has custom settings and save per-site
       chrome.runtime.sendMessage({ action: 'hascustomsettings' }, (response) => {
         if (response && response.success && response.hasCustomSettings) {
-          // Save as site-specific setting
           chrome.runtime.sendMessage({
             action: 'setsitesettings',
             intensity: value,
@@ -768,33 +700,26 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     const v = Number(e.target.value);
     updateSliderProgress(v);
     
-    // Update demo ONLY when user stops dragging (no lag!)
     scheduleDemoUpdate(v);
     
-    // Save settings
     debouncedIntensitySave(v);
   });
 
-  // Coverage live preview
   if (coverage) {
     coverage.addEventListener('input', (e) => {
       const c = Number(e.target.value);
       setCoverageLabel(c);
-      // Update demo preview using coverage by temporarily passing a combined param
-      // Note: updateDemoHTML currently accepts intensity; we'll use a small wrapper
       if (demoBionic) demoBionic.innerHTML = 'Bionic: ' + updateDemoHTMLWithCoverage(DEMO_SAMPLE, Number(intensity.value || 0.5), c);
     });
   }
 
 
-  // Coverage change handler
   if (coverage) {
     coverage.addEventListener('change', (e) => {
       const c = Number(e.target.value);
       chrome.storage.sync.set({ bionicCoverage: c });
       safeTabAccess((tab) => {
         if (!tab || !tab.id) return;
-        // If active, send coverage update to content script
         sendMessageToTab(tab.id, { action: 'getStatus' }, (response, error) => {
           if (response && response.enabled) {
             chrome.tabs.sendMessage(tab.id, { action: 'setIntensity', intensity: Number(intensity.value || 0.5), coverage: c }, () => {});
@@ -807,14 +732,12 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     });
   }
 
-  // Reset button (elements already cached at top - Issue #22)
   resetBtn.addEventListener('click', () => {
     const defaultVal = 0.5;
     intensity.value = defaultVal;
     setIntensityLabel(defaultVal);
-    updateSliderProgress(defaultVal); // Update slider progress on reset
+    updateSliderProgress(defaultVal);
     chrome.storage.sync.set({ bionicIntensity: defaultVal }, () => {
-      // Notify content script
         safeTabAccess((tab) => {
         chrome.runtime.sendMessage({ action: 'setIntensity', intensity: defaultVal, coverage: Number(coverage ? coverage.value : 0.4) }, () => {});
       });
@@ -822,14 +745,11 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     status.textContent = 'Reset to default intensity';
   });
 
-  // Help link (opens Terms file in a new tab if possible - elements already cached at top - Issue #22)
   helpLink.addEventListener('click', (e) => {
     e.preventDefault();
-    // Try to open the local terms file if packaged; otherwise open repo README
     chrome.tabs.create({ url: 'https://github.com/Awesome-XV/Bionic-Reader#privacy' });
   });
   
-  // Options button (opens options page)
   const optionsBtn = document.getElementById('optionsBtn');
   if (optionsBtn) {
     optionsBtn.addEventListener('click', () => {
