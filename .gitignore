@@ -12,7 +12,9 @@ npm-debug.log
 
 # Build outputs
 dist/
-package_extension.bat
+*.bat
+*.pem
+*.crx
 
 # OS files
 .DS_Store

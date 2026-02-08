@@ -29,9 +29,9 @@ Additional features include:
 
 Choose from three professionally designed themes to match your reading environment:
 
-- **AI Theme** (Default): Vibrant gradient design with playful emojis for an engaging experience
+- **AI Theme** (Default): AI gradient design with emojis for an engaging experience
 - **Light Theme**: Clean, professional look perfect for daytime reading with high contrast
-- **Dark Theme**: Easy on the eyes for night-time use with reduced eye strain
+- **Dark Theme** (Recommended): Easy on the eyes for night-time use with reduced eye strain
 
 Switch themes instantly from the dropdown in the top-right corner. Your preference is saved and syncs across devices.
 
@@ -148,12 +148,7 @@ The extension consists of these key components:
 
 This extension maintains enterprise-grade quality with comprehensive test coverage:
 
-- **Test Suite**: 358 automated tests across 24 test suites
-- **Coverage**: 50.66% overall code coverage
-  - Statements: 50.66% (652/1287)
-  - Branches: 41.1% (342/832)
-  - Functions: 58.88% (116/197)
-  - Lines: 53.49% (627/1172)
+- **Test Suite**: 466 automated tests across 27 test suites
 - **Success Rate**: 100% - All tests passing
 - **Test Categories**:
   - Content script processing & DOM manipulation
